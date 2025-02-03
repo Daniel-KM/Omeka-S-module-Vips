@@ -19,7 +19,11 @@ class Module extends AbstractModule
 {
     public function init(ModuleManager $moduleManager): void
     {
-        require_once __DIR__ . '/vendor/autoload.php';
+        // To use the module without php-vips, skip composer.
+        // TODO Find a better way to manage the module without php-vips.
+        if (function_exists('vips_version')) {
+            require_once __DIR__ . '/vendor/autoload.php';
+        }
 
         $moduleManager->getEventManager()->attach(ModuleEvent::EVENT_MERGE_CONFIG, [$this, 'onEventMergeConfig']);
     }
