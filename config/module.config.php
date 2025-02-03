@@ -17,6 +17,11 @@ return [
             'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\VipsCli',
         ],
     ],
+    'controllers' => [
+        'factories' => [
+            'Omeka\Controller\Admin\SystemInfo' => Service\Controller\Admin\SystemInfoControllerFactory::class,
+        ],
+    ],
     'vips' => [
     ],
 ];
