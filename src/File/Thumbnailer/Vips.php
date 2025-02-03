@@ -33,9 +33,17 @@ class Vips extends AbstractThumbnailer
 
         // $this->source is the file; $this->sourceFile is the object TempFile.
 
+        $args = [
+            'height' => $constraint,
+        ];
+
+        /**
+         * @todo The options are not available on php-vips, or don't use ::thumbnail.
+
         // Available parameters on load.
         // Special params on source file are managed via ImageMagick: page,
         // density, background.
+
         $mediaType = $this->sourceFile->getMediaType();
         $supportPages = [
             'application/pdf',
@@ -51,10 +59,6 @@ class Vips extends AbstractThumbnailer
             'application/pdf',
         ];
 
-        $args = [
-            'height' => $constraint,
-        ];
-
         if (in_array($mediaType, $supportPages)) {
             $args['page'] = (int) $this->getOption('page', 0);
         }
@@ -64,6 +68,7 @@ class Vips extends AbstractThumbnailer
         if (in_array($mediaType, $supportBackground)) {
             $args['background'] ='255 255 255 255';
         }
+        */
 
         // Params on destination are managed via vips.
         if ($strategy === 'square') {
@@ -100,9 +105,9 @@ class Vips extends AbstractThumbnailer
             $args['crop'] = 'none';
         }
 
-        $tempFile = $this->tempFileFactory->build();
-        $tempPath = $tempFile->getTempPath() . '.jpg';
-        $tempFile->delete();
+        $newFile = $this->tempFileFactory->build();
+        $tempPath = $newFile->getTempPath() . '.jpg';
+        $newFile->delete();
 
         try {
             $vips = \Jcupitt\Vips\Image::thumbnail($this->source, $constraint, $args);
