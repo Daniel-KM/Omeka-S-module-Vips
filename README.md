@@ -27,22 +27,70 @@ See general end user documentation for [installing a module].
 
 ### Module
 
+The module uses an external library, [jcupitt/vips], so use the release zip
+to install it, or use and init the source.
+
 * From the zip
 
-Download the last release [Vips.zip] from the list of releases, and uncompress
-it in the `modules` directory.
+Download the last release [Vips.zip] from the list of releases (the "master"
+does not contain the dependency), and uncompress it in the `modules` directory.
 
 * From the source and for development
 
 If the module was installed from the source, rename the name of the folder of
-the module to `Vips`.
+the module to `Vips`, go to the root module, and run:
+
+```sh
+composer install --no-dev
+```
+
+**Important**: if you don't have php-vips installed but only the package for
+cli vips, don't run this command, because it will fail. The module don't need
+the composer packages to run vips via the cli.
 
 Then install it like any other Omeka module and follow the config instructions.
 
+### Note on the version of the library jcupitt/vips
+
+There are two version of the library [jcupitt/vips]. Since version 2, the
+library requires a specific configuration in php.ini: ffi must be enabled
+globally. See [php doc on ffi] for more  information. Furthermore, for php 8.3,
+the key `zend.max_allowed_stack_size=-1` should be added to the php.ini.
+
+So the module integrates the last version of the branch 1, but you can update
+composer and use version 2 if your environnment and php.ini are ready and if you
+still need more performance (undetermined).
+
 ### Vips
 
-The library [vips] must be installed on the server. To install on Debian/Ubuntu,
-just run this command on Debian/Ubuntu, without the recommended graphical
+The library [vips] must be installed on the server.
+
+Two thumbnailers can be installed: the command line tool libvips or the php
+extension php-vips. This extension is recommended for the speed (two times
+quicker), but in the rare cases where there are big images that require more
+memory than the php one, the cli tool should be used. The php extension is a
+recent development that may not be available on old linux distributions.
+
+#### As php extension
+
+To install the php extension [php-vips] on Debian/Ubuntu, just run this command,
+with option "--no-install-recommends" to avoid to install the heavy and useless
+graphical interface:
+
+```sh
+sudo apt install --no-install-recommends php-vips
+```
+
+or for on Centos/RedHat:
+
+```sh
+sudo dnf install php-vips
+```
+
+#### As cli
+
+To install the cli tool on Debian/Ubuntu, just run this command, with option
+"--no-install-recommends" to avoid to install the heavy and useless graphical
 interface:
 
 ```sh
@@ -61,11 +109,13 @@ tested.
 
 ### Vips as default thumbnailer
 
-If you installed vips, you can use it as a [default thumbnailer] for Omeka. The
-main interest to use Vips as thumbnailer is not only the performance, but the
-possibility to center on the region of interest when cropping the image to get
-the square thumbnails. Just set it in the file "config/local.config.php" at the
-root of Omeka:
+When the module is enabled, the [default thumbnailer] is automatically set to
+Vips, when the extension php-vips is available, or VipsCli.
+
+The main interest to use Vips as thumbnailer is not only the performance, but
+the possibility to center on the region of interest when cropping the image to
+get the square thumbnails. Just set it in the file "config/local.config.php" at
+the root of Omeka:
 
 ```php
     'thumbnails' => [
@@ -73,7 +123,7 @@ root of Omeka:
             'square' => [
                 'options' => [
                     // Other options: low, centre, high, attention, entropy, depending on version of vips.
-                    'gravity' => 'attention',
+                    'vips_gravity' => 'attention',
                 ],
             ],
         ],
@@ -84,7 +134,8 @@ root of Omeka:
     ],
     'service_manager' => [
         'aliases' => [
-            'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\VipsCli',
+            // Automatically set by the module (or VipsCli if php extension php-vips is unavailable).
+            'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\Vips',
         ],
     ],
 ```
@@ -94,13 +145,16 @@ TODO / Bugs
 -----------
 
 - [x] Use the tiled images when available for arbitrary size request (ok for vips/tiled tiff).
-- [ ] Add a processor for [php-vips].
+- [x] Add a processor for [php-vips].
 - [x] Use vips as Omeka thumbnailer.
 - [ ] Add auto as default type of tiles (so choose tiled tiff if vips is installed, etc.).
 - [ ] Use the library [OpenJpeg] ("libopenjp2-tools" on Debian, or "openjpeg" on Centos instead of ImageMagick for a [performance] reason: ImageMagick always open the file as a whole even when extracting a small part.
 - [ ] Fix bitonal with vips.
 - [ ] Fix save jp2 with vips/convert.
 - [ ] Add an auto choice for thumbnailer (and select it according to input format) and tile type.
+- [ ] Manage icc profile.
+- [ ] Manage option "autoOrient"
+- [ ] Manage option "pdfUseCropBox".
 
 
 Warning
@@ -120,6 +174,8 @@ See online issues on the [module issues] page on GitLab.
 
 License
 -------
+
+### Module
 
 This module is published under the [CeCILL v2.1] license, compatible with
 [GNU/GPL] and approved by [FSF] and [OSI].
@@ -141,13 +197,9 @@ and, more generally, to use and operate it in the same conditions of security.
 This Agreement may be freely reproduced and published, provided it is not
 altered, and that no provisions are either added or removed herefrom.
 
-The module uses the [Deepzoom library] and [Zoomify library], the first based on
-[Deepzoom] of Jeremy Buggs (license MIT) and the second of various authors
-(license [GNU/GPL]). See files inside the folder `vendor` for more information.
+### Libraries
 
-* icc profile
-
-The minimal sRGB ICC v2 profile is a domain public one [from Gimp].
+The module uses [vips] and library [jcupitt/vips]. See their licence on the site.
 
 
 Copyright
@@ -162,6 +214,9 @@ Copyright
 [vips]: https://libvips.github.io/libvips
 [GD]: https://secure.php.net/manual/en/book.image.php
 [ImageMagick]: https://www.imagemagick.org
+[thumbnailer used by Wikipedia]: https://www.mediawiki.org/wiki/Extension:VipsScaler
+[jcupitt/vips]: https://packagist.org/packages/jcupitt/vips
+[php doc on ffi]: https://www.php.net/manual/en/ffi.configuration.php
 [php-vips]: https://github.com/libvips/php-vips
 [Vips.zip]: https://gitlab.com/Daniel-KM/Omeka-S-module-Vips/-/releases
 [default thumbnailer]: https://omeka.org/s/docs/user-manual/configuration/#thumbnails
