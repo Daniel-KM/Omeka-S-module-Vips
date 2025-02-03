@@ -8,5 +8,11 @@
             "name": "Daniel Berthereau",
             "email": "Daniel.git@Berthereau.net"
         }
-    ]
+    ],
+    "require": {
+        "jcupitt/vips": "^1.0"
+    },
+    "replace" : {
+        "psr/log" : "*"
+    }
 }

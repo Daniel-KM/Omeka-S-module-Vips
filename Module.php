@@ -4,6 +4,7 @@ namespace Vips;
 
 use Laminas\EventManager\Event;
 use Laminas\EventManager\SharedEventManagerInterface;
+use Laminas\ModuleManager\ModuleManager;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use Omeka\Module\AbstractModule;
 
@@ -15,6 +16,11 @@ use Omeka\Module\AbstractModule;
  */
 class Module extends AbstractModule
 {
+    public function init(ModuleManager $moduleManager): void
+    {
+        require_once __DIR__ . '/vendor/autoload.php';
+    }
+
     public function getConfig()
     {
         return include __DIR__ . '/config/module.config.php';
@@ -22,19 +28,29 @@ class Module extends AbstractModule
 
     public function install(ServiceLocatorInterface $services)
     {
+        /**
+         * @var \Omeka\Stdlib\Cli $cli
+         * @var \Omeka\Mvc\Controller\Plugin\Messenger $messenger
+         */
         $plugins = $services->get('ControllerPluginManager');
+        $cli = $services->get('Omeka\Cli');
         $translate = $plugins->get('translate');
+        $messenger = $plugins->get('messenger');
 
         // Check if vips is installed.
-
-        /** @var \Omeka\Stdlib\Cli $cli */
-        $cli = $services->get('Omeka\Cli');
-        $result = $cli->getCommandPath('vips');
-        if (!$result) {
+        $hasVips = function_exists('vips_version');
+        $hasVipsCli = (bool) $cli->getCommandPath('vips');
+        if (!$hasVips && !$hasVipsCli) {
             $message = new \Omeka\Stdlib\Message(
-                $translate('The library "vips" is not installed.') // @translate
+                $translate('The php-extension "php-vips" (recommended) or the library "vips" should be installed first to use this module.') // @translate
             );
             throw new \Omeka\Module\Exception\ModuleCannotInstallException((string) $message);
+        }
+
+        if (!$hasVips) {
+            $messenger->addWarning(new \Omeka\Stdlib\Message(
+                'It is recommnded to use php-extension "php-vips" instead of the cli "vips" for performance, unless you have memory issues on big images.' // @translate
+            ));
         }
     }
 
@@ -66,11 +82,14 @@ class Module extends AbstractModule
 
         $info = $event->getParam('info', []);
 
-        $info['Paths']['Vips directory'] = sprintf(
-            '%s %s',
-            $this->getVipsDir(),
-            !$cli->validateCommand($this->getVipsPath()) ? $translate('[invalid]') : ''
-        );
+        $vipsDir = $this->getVipsDir();
+        if ($vipsDir) {
+            $info['Paths']['Vips directory'] = sprintf(
+                '%s %s',
+                $this->getVipsDir(),
+                !$cli->validateCommand($this->getVipsPath()) ? $translate('[invalid]') : ''
+            );
+        }
 
         $thumbnailer = $config['service_manager']['aliases']['Omeka\File\Thumbnailer'];
 
@@ -121,6 +140,10 @@ class Module extends AbstractModule
                     : $translate('[Unable to execute command]');
             case \Omeka\File\Thumbnailer\NoThumbnail::class:
                 return '';
+            case \Vips\File\Thumbnailer\Vips::class:
+                return function_exists('vips_version')
+                    ? vips_version()
+                    : '';
             case \Vips\File\Thumbnailer\VipsCli::class:
                 return $this->getVipsVersion();
         }

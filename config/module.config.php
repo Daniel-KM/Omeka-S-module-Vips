@@ -10,11 +10,12 @@ return [
     ],
     'service_manager' => [
         'factories' => [
+            File\Thumbnailer\Vips::class => Service\File\Thumbnailer\VipsFactory::class,
             File\Thumbnailer\VipsCli::class => Service\File\Thumbnailer\VipsCliFactory::class,
         ],
         'aliases' => [
             // This option is overridden by the omeka config in config/local.config.php by default.
-            'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\VipsCli',
+            'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\Vips',
         ],
     ],
     'controllers' => [

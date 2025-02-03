@@ -61,11 +61,13 @@ class VipsCli extends AbstractThumbnailer
             return $this->createWithOldVips($strategy, $constraint, $options);
         }
 
+        // $this->source is the file; $this->sourceFile is the object TempFile.
         $origPath = $this->source;
 
         // Available parameters on load.
         // Special params on source file are managed via ImageMagick: page,
         // density, background.
+
         $mediaType = $this->sourceFile->getMediaType();
         $supportPages = [
             'application/pdf',
@@ -98,7 +100,7 @@ class VipsCli extends AbstractThumbnailer
         // Params on destination are managed via vips.
         if ($strategy === 'square') {
             $vipsCrop = [
-                // "none" does not crop (default).
+                // "none" does not crop (default, not for square).
                 // 'none',
                 'low',
                 'centre',
