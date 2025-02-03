@@ -21,7 +21,7 @@ class Module extends AbstractModule
     {
         // To use the module without php-vips, skip composer.
         // TODO Find a better way to manage the module without php-vips.
-        if (function_exists('vips_version')) {
+        if (extension_loaded('vips')) {
             require_once __DIR__ . '/vendor/autoload.php';
         }
 
@@ -46,7 +46,7 @@ class Module extends AbstractModule
         if (in_array($thumbnailer, ['Vips\File\Thumbnailer\Vips', 'Vips\File\Thumbnailer\VipsCli'])) {
             return;
         }
-        $config['service_manager']['aliases']['Omeka\File\Thumbnailer'] = function_exists('vips_version')
+        $config['service_manager']['aliases']['Omeka\File\Thumbnailer'] = extension_loaded('vips')
             ? 'Vips\File\Thumbnailer\Vips'
             : 'Vips\File\Thumbnailer\VipsCli';
         $configListener->setMergedConfig($config);
@@ -64,7 +64,7 @@ class Module extends AbstractModule
         $messenger = $plugins->get('messenger');
 
         // Check if vips is installed.
-        $hasVips = function_exists('vips_version');
+        $hasVips = extension_loaded('vips');
         $hasVipsCli = (bool) $cli->getCommandPath('vips');
         if (!$hasVips && !$hasVipsCli) {
             $message = new \Omeka\Stdlib\Message(
@@ -145,13 +145,13 @@ class Module extends AbstractModule
             default:
                 return '';
             case \Omeka\File\Thumbnailer\Gd::class:
-                if (!function_exists('gd_info')) {
+                if (!extension_loaded('gd')) {
                     return '';
                 }
                 $result = gd_info();
                 return $result['GD Version'] ?? $result['GD library Version'] ?? '';
             case \Omeka\File\Thumbnailer\Imagick::class:
-                if (!class_exists('Imagick', false)) {
+                if (!extension_loaded('imagick')) {
                     return '';
                 }
                 $result = \Imagick::getVersion();
@@ -167,7 +167,7 @@ class Module extends AbstractModule
             case \Omeka\File\Thumbnailer\NoThumbnail::class:
                 return '';
             case \Vips\File\Thumbnailer\Vips::class:
-                return function_exists('vips_version')
+                return extension_loaded('vips')
                     ? vips_version()
                     : '';
             case \Vips\File\Thumbnailer\VipsCli::class:
