@@ -4,6 +4,7 @@ namespace Vips;
 
 use Laminas\EventManager\Event;
 use Laminas\EventManager\SharedEventManagerInterface;
+use Laminas\ModuleManager\ModuleEvent;
 use Laminas\ModuleManager\ModuleManager;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use Omeka\Module\AbstractModule;
@@ -19,11 +20,32 @@ class Module extends AbstractModule
     public function init(ModuleManager $moduleManager): void
     {
         require_once __DIR__ . '/vendor/autoload.php';
+
+        $moduleManager->getEventManager()->attach(ModuleEvent::EVENT_MERGE_CONFIG, [$this, 'onEventMergeConfig']);
     }
 
     public function getConfig()
     {
         return include __DIR__ . '/config/module.config.php';
+    }
+
+    /**
+     * Force thumbnailer = vips/vipscli in config, else this module is useless.
+     */
+    public function onEventMergeConfig(ModuleEvent $event): void
+    {
+        // At this point, the config is read only, so it is copied and replaced.
+        /** @var \Laminas\ModuleManager\Listener\ConfigListener $configListener */
+        $configListener = $event->getParam('configListener');
+        $config = $configListener->getMergedConfig(false);
+        $thumbnailer = $config['service_manager']['aliases']['Omeka\File\Thumbnailer'];
+        if (in_array($thumbnailer, ['Vips\File\Thumbnailer\Vips', 'Vips\File\Thumbnailer\VipsCli'])) {
+            return;
+        }
+        $config['service_manager']['aliases']['Omeka\File\Thumbnailer'] = function_exists('vips_version')
+            ? 'Vips\File\Thumbnailer\Vips'
+            : 'Vips\File\Thumbnailer\VipsCli';
+        $configListener->setMergedConfig($config);
     }
 
     public function install(ServiceLocatorInterface $services)
