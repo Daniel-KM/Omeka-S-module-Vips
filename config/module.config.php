@@ -4,6 +4,15 @@ namespace Vips;
 
 return [
     'thumbnails' => [
+        'types' => [
+            'square' => [
+                'options' => [
+                    // Vips interesting: none, centre, entropy, attention, low, high.
+                    // When not set, use main gravity (center by default)..
+                    'vips_gravity' => 'attention',
+                ],
+            ],
+        ],
         'thumbnailer_options' => [
             'vips_dir' => null,
         ],

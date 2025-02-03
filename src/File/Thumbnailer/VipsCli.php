@@ -64,6 +64,16 @@ class VipsCli extends AbstractThumbnailer
         // $this->source is the file; $this->sourceFile is the object TempFile.
         $origPath = $this->source;
 
+        // TODO Is there a way to get the image size from vips? Or use database?
+        $imageData = getimagesize($this->source);
+        if ($imageData) {
+            $origWidth = $imageData[0];
+            $origHeight = $imageData[1];
+        } else {
+            $origWidth = null;
+            $origHeight = null;
+        }
+
         // Available parameters on load.
         // Special params on source file are managed via ImageMagick: page,
         // density, background.
@@ -99,6 +109,8 @@ class VipsCli extends AbstractThumbnailer
 
         // Params on destination are managed via vips.
         if ($strategy === 'square') {
+            $newWidth = $constraint;
+            $newHeight = $constraint;
             $vipsCrop = [
                 // "none" does not crop (default, not for square).
                 // 'none',
@@ -129,6 +141,28 @@ class VipsCli extends AbstractThumbnailer
             }
             $crop = ' --crop ' . $gravity;
         } else {
+            if ($imageData) {
+                if ($origWidth < $constraint && $origHeight < $constraint) {
+                    // Original is smaller than constraint.
+                    $newWidth = $origWidth;
+                    $newHeight = $origHeight;
+                } elseif ($origWidth > $origHeight) {
+                    // Original is paysage.
+                    $newWidth = $constraint;
+                    $newHeight = round($origHeight * $constraint / $origWidth);
+                } elseif ($origWidth < $origHeight) {
+                    // Original is portrait.
+                    $newWidth = round($origWidth * $constraint / $origHeight);
+                    $newHeight = $constraint;
+                } else {
+                    // Original is square.
+                    $newWidth = $constraint;
+                    $newHeight = $constraint;
+                }
+            } else {
+                $newWidth = $constraint;
+                $newHeight = $constraint;
+            }
             $crop = '';
         }
 
@@ -142,8 +176,8 @@ class VipsCli extends AbstractThumbnailer
             $this->vipsPath,
             escapeshellarg($origPath),
             escapeshellarg($tempPathCommand),
-            (int) $constraint,
-            (int) $constraint,
+            (int) $newWidth,
+            (int) $newHeight,
             $crop,
             $this->getOption('autoOrient', true) ? ' --no-rotate' : '',
             $strategy === 'square' ? 'both' : 'down'

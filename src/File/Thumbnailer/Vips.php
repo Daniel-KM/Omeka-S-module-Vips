@@ -33,9 +33,20 @@ class Vips extends AbstractThumbnailer
 
         // $this->source is the file; $this->sourceFile is the object TempFile.
 
-        $args = [
-            'height' => $constraint,
-        ];
+        // TODO Is there a way to get the image size from vips? Or use database?
+        $imageData = getimagesize($this->source);
+        if ($imageData) {
+            $origWidth = $imageData[0];
+            $origHeight = $imageData[1];
+        } else {
+            $origWidth = null;
+            $origHeight = null;
+        }
+
+        // TODO Add an option to resize everything, even smaller images, to the thumbnail size.
+        // TODO Use vips supports <>!.
+
+        $args = [];
 
         /**
          * @todo The options are not available on php-vips, or don't use ::thumbnail.
@@ -72,6 +83,8 @@ class Vips extends AbstractThumbnailer
 
         // Params on destination are managed via vips.
         if ($strategy === 'square') {
+            $newWidth = $constraint;
+            $args['height'] = $constraint;
             $vipsCrop = [
                 // "none" does not crop (default, not for square).
                 // 'none',
@@ -94,23 +107,49 @@ class Vips extends AbstractThumbnailer
                 'south' => 'low',
                 'southeast' => 'low',
             ];
-            $gravity = isset($options['gravity']) ? strtolower($options['gravity']) : 'attention';
-            if (isset($mapImagickToVips[$gravity])) {
-                $gravity = $mapImagickToVips[$gravity];
-            } elseif (!in_array($gravity, $vipsCrop)) {
-                $gravity = 'attention';
+            if (empty($options['vips_gravity'])) {
+                $gravity = isset($options['gravity']) ? strtolower($options['gravity']) : 'attention';
+                if (isset($mapImagickToVips[$gravity])) {
+                    $gravity = $mapImagickToVips[$gravity];
+                } elseif (!in_array($gravity, $vipsCrop)) {
+                    $gravity = 'attention';
+                }
+            } else {
+                $gravity = $vipsCrop[$options['vips_gravity']] ?? 'attention';
             }
             $args['crop'] = $gravity;
         } else {
-            $args['crop'] = 'none';
+            if ($imageData) {
+                if ($origWidth < $constraint && $origHeight < $constraint) {
+                    // Original is smaller than constraint.
+                    $newWidth = $origWidth;
+                    $args['height'] = $origHeight;
+                } elseif ($origWidth > $origHeight) {
+                    // Original is paysage.
+                    $newWidth = $constraint;
+                    $args['height'] = round($origHeight * $constraint / $origWidth);
+                } elseif ($origWidth < $origHeight) {
+                    // Original is portrait.
+                    $newWidth = round($origWidth * $constraint / $origHeight);
+                    $args['height'] = $constraint;
+                } else {
+                    // Original is square.
+                    $newWidth = $constraint;
+                }
+            } else {
+                $newWidth = $constraint;
+            }
+            // $args['crop'] = 'none';
         }
+
+        // TODO Manage icc profile and options "autoOrient" and "pdfUseCropBox".
 
         $newFile = $this->tempFileFactory->build();
         $tempPath = $newFile->getTempPath() . '.jpg';
         $newFile->delete();
 
         try {
-            $vips = \Jcupitt\Vips\Image::thumbnail($this->source, $constraint, $args);
+            $vips = \Jcupitt\Vips\Image::thumbnail($this->source, $newWidth, $args);
             $vips->writeToFile($tempPath);
         } catch (\Exception $e) {
             throw new Exception\CannotCreateThumbnailException($e->getMessage(), $e->getCode());
