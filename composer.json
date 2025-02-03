@@ -1,0 +1,12 @@
+{
+    "name": "daniel-km/omeka-s-module-vips",
+    "description": "Module for Omeka S that integrate the library vips to create thumbnails a lot quicker and with less memory.",
+    "type": "library",
+    "license": "CECILL-2.1",
+    "authors": [
+        {
+            "name": "Daniel Berthereau",
+            "email": "Daniel.git@Berthereau.net"
+        }
+    ]
+}
