@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-15 00:00+0000\n"
+"POT-Creation-Date: 2025-02-03 00:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,3 +16,19 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: Module.php:67
+msgid ""
+"The php extension \"php-vips\" (recommended) or the library \"vips\" should "
+"be installed first to use this module."
+msgstr ""
+
+#: Module.php:74
+msgid ""
+"It is recommnded to use the php extension \"php-vips\" instead of the cli "
+"\"vips\" for performance, unless you have memory issues on big images."
+msgstr ""
+
+#: src/File/Thumbnailer/Vips.php:19
+msgid "The vips PHP extension must be loaded to use this thumbnailer."
+msgstr ""

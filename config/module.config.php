@@ -32,6 +32,16 @@ return [
             'Omeka\Controller\Admin\SystemInfo' => Service\Controller\Admin\SystemInfoControllerFactory::class,
         ],
     ],
+    'translator' => [
+        'translation_file_patterns' => [
+            [
+                'type' => 'gettext',
+                'base_dir' => dirname(__DIR__) . '/language',
+                'pattern' => '%s.mo',
+                'text_domain' => null,
+            ],
+        ],
+    ],
     'vips' => [
     ],
 ];

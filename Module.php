@@ -68,14 +68,14 @@ class Module extends AbstractModule
         $hasVipsCli = (bool) $cli->getCommandPath('vips');
         if (!$hasVips && !$hasVipsCli) {
             $message = new \Omeka\Stdlib\Message(
-                $translate('The php-extension "php-vips" (recommended) or the library "vips" should be installed first to use this module.') // @translate
+                $translate('The php extension "php-vips" (recommended) or the library "vips" should be installed first to use this module.') // @translate
             );
             throw new \Omeka\Module\Exception\ModuleCannotInstallException((string) $message);
         }
 
         if (!$hasVips) {
             $messenger->addWarning(new \Omeka\Stdlib\Message(
-                'It is recommnded to use php-extension "php-vips" instead of the cli "vips" for performance, unless you have memory issues on big images.' // @translate
+                'It is recommnded to use the php extension "php-vips" instead of the cli "vips" for performance, unless you have memory issues on big images.' // @translate
             ));
         }
     }
