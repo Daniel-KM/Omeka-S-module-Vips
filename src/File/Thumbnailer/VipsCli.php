@@ -234,14 +234,13 @@ class VipsCli extends AbstractThumbnailer
      */
     public function setVipsPath($vipsDir): self
     {
-        $cli = $this->cli;
         if (is_null($vipsDir)) {
-            $vipsPath = $cli->getCommandPath(self::VIPS_COMMAND);
+            $vipsPath = $this->cli->getCommandPath(self::VIPS_COMMAND);
             if (false === $vipsPath) {
                 throw new Exception\InvalidThumbnailerException('Vips error: cannot determine path to vips command.');
             }
         } elseif ($vipsDir) {
-            $vipsPath = $cli->validateCommand($vipsDir, self::VIPS_COMMAND);
+            $vipsPath = $this->cli->validateCommand($vipsDir, self::VIPS_COMMAND);
             if (false === $vipsPath) {
                 throw new Exception\InvalidThumbnailerException('Vips error: invalid vips command.');
             }
@@ -254,7 +253,7 @@ class VipsCli extends AbstractThumbnailer
 
     public function setIsOldVips($isOldVips): self
     {
-        $this->setIsOldVips = (bool) $isOldVips;
+        $this->isOldVips = (bool) $isOldVips;
         return $this;
     }
 
@@ -262,8 +261,8 @@ class VipsCli extends AbstractThumbnailer
     {
         if (is_null($this->isOldVips)) {
             $version = (string) $this->cli->execute($this->vipsPath . ' --version');
-            $this->setIsOldVips = version_compare($version, 'vips-8.6', '<');
+            $this->isOldVips = version_compare($version, 'vips-8.6', '<');
         }
-        return $this->setIsOldVips;
+        return $this->isOldVips;
     }
 }
