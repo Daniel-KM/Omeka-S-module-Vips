@@ -16,6 +16,9 @@ It has another interesting feature too: the possibility to crop the square
 thumbnail according to the point of attention, that may not be the center
 (gravity).
 
+Furthermore, a bash or php script is provided to create all thumbnail in bulk
+from the command line very quickly.
+
 This module requires a package installed on the server that is less common than
 ImageMagick or GD, but provided natively by all main linux distributions: [vips].
 
@@ -139,6 +142,20 @@ the root of Omeka:
         ],
     ],
 ```
+
+
+### Create all thumbnails from the command lines
+
+From the root of Omeka, run:
+```sh
+# php
+php modules/Vips/data/scripts/thumbnailize.php
+# or bash
+bash modules/Vips/data/scripts/thumbnailize.sh
+```
+
+All arguments are provided: all files or only missing ones, in parallel or not,
+with a specific crop mode, etc.
 
 
 TODO / Bugs
