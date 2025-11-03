@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 [ -z "$BASH_VERSION" ] && exec bash "$0" "$@"
 
+############################################
+# Thumbnail generation script using VIPS or ImageMagick.
+#
+# Copyright Daniel Berthereau 2025
+# Licence Cecill 2.1
+#
+# Copied:
+# @see modules/EasyAdmin/data/scripts/thumbnailize.sh
+# @see modules/Vips/data/scripts/thumbnailize.sh
+############################################
+
 set -euo pipefail
 
 ############################################
@@ -16,7 +27,7 @@ LARGE_SIZE=800
 MEDIUM_SIZE=200
 SQUARE_SIZE=200
 
-LOG_FILE="thumbnail.log"
+LOG_FILE="thumbnailize.log"
 MODE="missing"
 DRYRUN=false
 PARALLEL=1
@@ -28,18 +39,25 @@ TMPCOUNT=$(mktemp /tmp/thumb_count_XXXXXX.tmp)
 touch "$TMPCOUNT"
 
 ############################################
-# CHECK DEPENDENCIES
+# DEPENDENCY CHECKS
 ############################################
+USE_VIPS=true
+
 if ! command -v vips &>/dev/null; then
-    echo "Error: VIPS is required but not found."
-    echo "Please install libvips (e.g., 'sudo apt install libvips-tools' or 'brew install vips')."
-    exit 1
+    echo "Warning: VIPS is not installed. Falling back to ImageMagick convert."
+    USE_VIPS=false
 fi
 
-# Only check GNU parallel if using parallel > 1
+if ! $USE_VIPS; then
+    if ! command -v convert &>/dev/null; then
+        echo "Error: Neither vips nor convert found. Install at least one."
+        exit 1
+    fi
+fi
+
+# Only check GNU parallel if using parallel > 1.
 if [[ "$PARALLEL" -gt 1 ]] && ! command -v parallel &>/dev/null; then
-    echo "Error: GNU parallel is required for parallel processing."
-    echo "Please install it (e.g., 'sudo apt install parallel' or 'brew install parallel')."
+    echo "Error: GNU parallel not found but --parallel was used."
     exit 1
 fi
 
@@ -54,13 +72,13 @@ Options:
   --all                Process all files (overwrite existing)
   --missing            Process only missing thumbnails (default)
   --parallel N         Run N parallel jobs
-  --dry-run            Show actions but do not run vips
-  --log-file FILE      Set log file (default: thumbnail.log)
+  --dry-run            Show actions but do not run converters
+  --log-file FILE      Set log file (default: thumbnailize.log)
   --no-progress        Disable progress bar
-  --pdf-dpi N          Set DPI for PDF rendering (default: 150)
+  --pdf-dpi N          Set dpi for pdf rendering
   --crop-mode MODE     Smart crop mode: centre (default), face, entropy, attention, document
-  --main-dir DIR       Main directory for files/ subfolders (default: files/)
-  --help               Show this help message
+  --main-dir DIR       Main directory (default: files/)
+  --help               Show help
 
 Examples:
 
@@ -107,7 +125,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# Update directories based on MAIN_DIR
+# Update directories based on MAIN_DIR.
 ORIGINAL_DIR="$MAIN_DIR/original"
 LARGE_DIR="$MAIN_DIR/large"
 MEDIUM_DIR="$MAIN_DIR/medium"
@@ -122,40 +140,27 @@ shopt -s nullglob
 
 file_list=$(mktemp /tmp/thumb_files_XXXXXX.txt)
 find "$ORIGINAL_DIR" -maxdepth 1 -type f \
-     \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.tif" -o -iname "*.tiff" -o -iname "*.pdf" \) \
-     > "$file_list"
+    \( -iname "*.jpg" -o -iname "*.jpeg" \
+    -o -iname "*.png" \
+    -o -iname "*.webp" \
+    -o -iname "*.tif" -o -iname "*.tiff" \
+    -o -iname "*.pdf" \) \
+    > "$file_list"
 
 TOTAL=$(wc -l < "$file_list")
 COUNT=0
-
-echo "Mode: $MODE"
-echo "Parallel jobs: $PARALLEL"
-echo "Dry-run: $DRYRUN"
-echo "Progress bar: $PROGRESS"
-echo "PDF DPI: $PDF_DPI"
-echo "Crop mode: $CROP_MODE"
-echo "Log-file: $LOG_FILE"
-echo "Main directory: $MAIN_DIR"
-echo "Found $TOTAL files"
-echo
 
 ############################################
 # TYPE DETECTION
 ############################################
 detect_type() {
     local file="$1"
-    if fmt=$(vipsheader -f format "$file" 2>/dev/null); then
-        echo "$fmt"
+    if $USE_VIPS && vipsheader -f format "$file" &>/dev/null; then
+        echo "$(vipsheader -f format "$file")"
         return
     fi
-    case "$file" in
-        *.pdf|*.PDF) echo "pdfload" ;;
-        *.jpg|*.jpeg|*.JPG|*.JPEG) echo "jpeg" ;;
-        *.png|*.PNG) echo "png" ;;
-        *.tif|*.tiff|*.TIF|*.TIFF) echo "tiff" ;;
-        *.webp|*.WEBP) echo "webp" ;;
-        *) echo "unknown" ;;
-    esac
+    [[ "$file" =~ \.pdf$|\.PDF$ ]] && echo "pdfload" && return
+    echo "image"
 }
 
 ############################################
@@ -167,6 +172,7 @@ progress_bar() {
     local percent=$((100 * COUNT / (TOTAL == 0 ? 1 : TOTAL)))
     local filled=$((width * COUNT / (TOTAL == 0 ? 1 : TOTAL)))
     local empty=$((width - filled))
+
     printf "\r["
     printf "%0.s#" $(seq 1 $filled)
     printf "%0.s-" $(seq 1 $empty)
@@ -174,21 +180,66 @@ progress_bar() {
 }
 
 ############################################
+# CONVERSION HELPERS (VIPS + fallback convert)
+############################################
+convert_large() {
+    local in="$1" out="$2"
+
+    if $USE_VIPS; then
+        if vips thumbnail "$in" "$out" $LARGE_SIZE --size=down 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    convert "$in" -resize "${LARGE_SIZE}x${LARGE_SIZE}>" "$out"
+}
+
+convert_medium() {
+    local in="$1" out="$2"
+
+    if $USE_VIPS; then
+        if vips thumbnail "$in" "$out" $MEDIUM_SIZE --size=down 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    convert "$in" -resize "${MEDIUM_SIZE}x${MEDIUM_SIZE}>" "$out"
+}
+
+convert_square() {
+    local in="$1" out="$2"
+
+    # VIPS version
+    if $USE_VIPS; then
+
+        if vips thumbnail "$in" "$out" "${SQUARE_SIZE}" --height "${SQUARE_SIZE}" \
+            --size both --crop "$CROP_MODE" 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    # ImageMagick fallback (resize first, then crop)
+    convert "$in" \
+        -resize "${SQUARE_SIZE}x${SQUARE_SIZE}^" \
+        -gravity center \
+        -extent "${SQUARE_SIZE}x${SQUARE_SIZE}" \
+        "$out"
+}
+
+############################################
 # PROCESS SINGLE FILE
 ############################################
 process_file() {
     local img="$1"
-    local base
-    base=$(basename "$img")
-    local filetype
-    filetype=$(detect_type "$img")
+    local base=$(basename "$img")
+    local filetype=$(detect_type "$img")
 
     if [[ "$filetype" == "unknown" ]]; then
-        echo "[skip] Unknown: $base" >> "$LOG_FILE"
+        echo "[skip]   Unknown: $base" >> "$LOG_FILE"
         return
     fi
 
-    # Replace extension with .jpg
+    # Replace extension with .jpg.
     local filename="${base%.*}.jpg"
     local large_out="$LARGE_DIR/$filename"
     local medium_out="$MEDIUM_DIR/$filename"
@@ -207,57 +258,39 @@ process_file() {
     local temp_flattened=""
     local is_pdf=false
 
-    # PDF handling
+    # PDF handling.
     if [[ "$filetype" == "pdfload" ]]; then
         is_pdf=true
         temp_flattened=$(mktemp /tmp/pdf_flat_XXXXXX.jpg)
+
         if [[ "$DRYRUN" == false ]]; then
-            vips pdfload "$img" "$temp_flattened" \
-                --page=0 \
-                --dpi=$PDF_DPI \
-                --n=1 \
-                --access=sequential \
-                --flatten \
-                --background "255 255 255"
+            if $USE_VIPS; then
+                if ! vips pdfload "$img" "$temp_flattened" \
+                    --page=0 \
+                    --dpi=$PDF_DPI \
+                    --n=1 \
+                    --access=sequential \
+                    --flatten \
+                    --background "255 255 255" \
+                    2>/dev/null; then
+                    convert -density "$PDF_DPI" "$img[0]" \
+                        -background white -flatten "$temp_flattened"
+                fi
+            else
+                convert -density "$PDF_DPI" "$img[0]" \
+                    -background white \
+                    -flatten "$temp_flattened"
+            fi
         fi
+
         thumbnail_input="$temp_flattened"
     fi
 
-    # Create large and medium
+    # Create outputs.
     if [[ "$DRYRUN" == false ]]; then
-        vips thumbnail "$thumbnail_input" "$large_out"  $LARGE_SIZE --size=down
-        vips thumbnail "$thumbnail_input" "$medium_out" $MEDIUM_SIZE --size=down
-    fi
-
-    # Smart crop for square
-    if [[ "$DRYRUN" == false ]]; then
-        case "$CROP_MODE" in
-            centre|center)
-                vips thumbnail "$thumbnail_input" "$square_out" \
-                    ${SQUARE_SIZE}x${SQUARE_SIZE} --crop=centre
-                ;;
-            face)
-                vips smartcrop "$thumbnail_input" "$square_out" \
-                    ${SQUARE_SIZE} ${SQUARE_SIZE} --interesting=attention
-                ;;
-            entropy)
-                vips smartcrop "$thumbnail_input" "$square_out" \
-                    ${SQUARE_SIZE} ${SQUARE_SIZE} --interesting=entropy
-                ;;
-            attention)
-                vips smartcrop "$thumbnail_input" "$square_out" \
-                    ${SQUARE_SIZE} ${SQUARE_SIZE} --interesting=attention
-                ;;
-            document)
-                vips smartcrop "$thumbnail_input" "$square_out" \
-                    ${SQUARE_SIZE} ${SQUARE_SIZE} --interesting=entropy
-                ;;
-            *)
-                echo "[warn] Unknown crop mode '$CROP_MODE', fallback centre" >> "$LOG_FILE"
-                vips thumbnail "$thumbnail_input" "$square_out" \
-                    ${SQUARE_SIZE}x${SQUARE_SIZE} --crop=centre
-                ;;
-        esac
+        convert_large  "$thumbnail_input" "$large_out"
+        convert_medium "$thumbnail_input" "$medium_out"
+        convert_square "$thumbnail_input" "$square_out"
     fi
 
     [[ "$is_pdf" == true && "$DRYRUN" == false ]] && rm -f "$temp_flattened"
@@ -266,15 +299,28 @@ process_file() {
 }
 
 ############################################
-# EXPORT FUNCTIONS AND VARIABLES FOR PARALLEL
+# EXPORT FOR PARALLEL
 ############################################
-export -f process_file detect_type progress_bar
+export -f process_file detect_type progress_bar \
+       convert_large convert_medium convert_square
 export MODE DRYRUN LOG_FILE LARGE_DIR MEDIUM_DIR SQUARE_DIR \
-       LARGE_SIZE MEDIUM_SIZE SQUARE_SIZE PDF_DPI CROP_MODE TMPCOUNT
+       LARGE_SIZE MEDIUM_SIZE SQUARE_SIZE PDF_DPI CROP_MODE TMPCOUNT USE_VIPS
 
 ############################################
-# RUN SERIAL
+# EXECUTION
 ############################################
+echo "Mode: $MODE"
+echo "Parallel jobs: $PARALLEL"
+echo "Dry-run: $DRYRUN"
+echo "Progress bar: $PROGRESS"
+echo "PDF DPI: $PDF_DPI"
+echo "Crop mode: $CROP_MODE"
+echo "Log-file: $LOG_FILE"
+echo "Main directory: $MAIN_DIR"
+echo "Using VIPS: $USE_VIPS"
+echo "Total files found: $TOTAL"
+echo
+
 run_serial() {
     while read -r img; do
         process_file "$img"
@@ -287,7 +333,6 @@ run_serial() {
 # RUN PARALLEL
 ############################################
 run_parallel() {
-    # Start progress bar updater in background
     (
       while true; do
         COUNT=$(wc -l < "$TMPCOUNT")
@@ -298,7 +343,8 @@ run_parallel() {
     ) &
     PROGRESS_PID=$!
 
-    cat "$file_list" | parallel -j "$PARALLEL" process_file {}
+    # Correct GNU parallel invocation.
+    parallel -j "$PARALLEL" --arg-file "$file_list" process_file
 
     wait
     kill $PROGRESS_PID 2>/dev/null || true
@@ -320,5 +366,5 @@ fi
 echo
 echo "DONE."
 
-# Cleanup
+# Cleanup.
 rm -f "$TMPCOUNT" "$file_list"

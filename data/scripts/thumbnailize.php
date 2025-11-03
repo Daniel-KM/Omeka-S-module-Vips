@@ -2,6 +2,16 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Thumbnail generation script using VIPS or ImageMagick.
+ *
+ * @copyright Daniel Berthereau 2025
+ * @license Cecill 2.1
+ *
+ * Copied:
+ * @see modules/EasyAdmin/data/scripts/thumbnailize.php
+ * @see modules/Vips/data/scripts/thumbnailize.php
+ */
 if (php_sapi_name() !== 'cli') {
     die("This script must be run from the command line.\n");
 }
@@ -9,12 +19,10 @@ if (php_sapi_name() !== 'cli') {
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
-if (!function_exists('pcntl_fork')) {
-    die("pcntl extension is required for parallel processing.\n");
-}
-
-// ------------------- DEFAULT CONFIG -------------------
-$MAIN_DIR = "files";
+/***************************************************
+ * DEFAULT CONFIG
+ ***************************************************/
+$MAIN_DIR = 'files';
 $ORIGINAL_DIR = "$MAIN_DIR/original";
 $LARGE_DIR = "$MAIN_DIR/large";
 $MEDIUM_DIR = "$MAIN_DIR/medium";
@@ -24,57 +32,96 @@ $LARGE_SIZE = 800;
 $MEDIUM_SIZE = 200;
 $SQUARE_SIZE = 200;
 
-$LOG_FILE = "thumbnail.log";
-$MODE = "missing";
+$LOG_FILE = 'thumbnailize.log';
+$MODE = 'missing';
 $DRYRUN = false;
 $PARALLEL = 1;
 $PROGRESS = true;
 $PDF_DPI = 150;
-$CROP_MODE = "centre";
+$CROP_MODE = 'centre';
 
-// ------------------- PARSE OPTIONS -------------------
-$options = getopt("", [
-    "all", "missing", "parallel:", "dry-run", "log-file:", "no-progress",
-    "pdf-dpi:", "crop-mode:", "main-dir:", "help"
+/***************************************************
+ * PARSE CLI OPTIONS
+ ***************************************************/
+$options = getopt('', [
+    'all', 'missing', 'parallel:', 'dry-run', 'log-file:', 'no-progress',
+    'pdf-dpi:', 'crop-mode:', 'main-dir:', 'help',
 ]);
 
 if (isset($options['help'])) {
     echo "Usage: php thumbnailize.php [OPTIONS]\n";
     echo "--all                Process all files\n";
-    echo "--missing            Process only missing (default)\n";
-    echo "--parallel N         Number of parallel processes\n";
-    echo "--dry-run            Show actions only\n";
-    echo "--log-file FILE      Log file\n";
+    echo "--missing            Process only missing\n";
+    echo "--parallel N         Number of parallel workers\n";
+    echo "--dry-run            No conversions, just print actions\n";
+    echo "--log-file FILE      Set log file (default thumbnalize.log)\n";
     echo "--no-progress        Disable progress bar\n";
-    echo "--pdf-dpi N          DPI for PDFs\n";
+    echo "--pdf-dpi N          DPI used for PDF rendering\n";
     echo "--crop-mode MODE     centre|entropy|attention|face|document\n";
-    echo "--main-dir DIR       Main directory (default: files)\n";
+    echo "--main-dir DIR       Override base directory\n";
     exit(0);
 }
 
-if (isset($options['all'])) $MODE = "all";
-if (isset($options['missing'])) $MODE = "missing";
-if (isset($options['parallel'])) $PARALLEL = max(1, (int)$options['parallel']);
-if (isset($options['dry-run'])) $DRYRUN = true;
-if (isset($options['log-file'])) $LOG_FILE = $options['log-file'];
-if (isset($options['no-progress'])) $PROGRESS = false;
-if (isset($options['pdf-dpi'])) $PDF_DPI = (int)$options['pdf-dpi'];
-if (isset($options['crop-mode'])) $CROP_MODE = $options['crop-mode'];
+if (isset($options['all'])) {
+    $MODE = 'all';
+}
+if (isset($options['missing'])) {
+    $MODE = 'missing';
+}
+if (isset($options['parallel'])) {
+    $PARALLEL = max(1, (int) $options['parallel']);
+}
+if (isset($options['dry-run'])) {
+    $DRYRUN = true;
+}
+if (isset($options['log-file'])) {
+    $LOG_FILE = $options['log-file'];
+}
+if (isset($options['no-progress'])) {
+    $PROGRESS = false;
+}
+if (isset($options['pdf-dpi'])) {
+    $PDF_DPI = (int) $options['pdf-dpi'];
+}
+if (isset($options['crop-mode'])) {
+    $CROP_MODE = $options['crop-mode'];
+}
 if (isset($options['main-dir'])) {
-    $MAIN_DIR = rtrim($options['main-dir'], "/");
+    $MAIN_DIR = rtrim($options['main-dir'], '/');
     $ORIGINAL_DIR = "$MAIN_DIR/original";
     $LARGE_DIR = "$MAIN_DIR/large";
     $MEDIUM_DIR = "$MAIN_DIR/medium";
     $SQUARE_DIR = "$MAIN_DIR/square";
 }
 
-// ------------------- CHECK VIPS -------------------
-exec("which vips", $out, $ret);
+/***************************************************
+ * CHECK DEPENDENCIES
+ ***************************************************/
+$USE_VIPS = true;
+
+$dummy = $ret = null;
+exec('command -v vips', $dummy, $ret);
 if ($ret !== 0) {
-    die("Error: VIPS is required but not found.\n");
+    echo "Warning: VIPS not found, using ImageMagick convert instead.\n";
+    $USE_VIPS = false;
 }
 
-// ------------------- PREP -------------------
+if (!$USE_VIPS) {
+    exec('command -v convert', $dummy, $ret);
+    if ($ret !== 0) {
+        die("Error: Neither VIPS nor ImageMagick convert is installed.\n");
+    }
+}
+
+if ($PARALLEL > 1) {
+    if (!function_exists('pcntl_fork')) {
+        die("pcntl extension is required for parallel processing.\n");
+    }
+}
+
+/***************************************************
+ * SETUP
+ ***************************************************/
 @mkdir($LARGE_DIR, 0777, true);
 @mkdir($MEDIUM_DIR, 0777, true);
 @mkdir($SQUARE_DIR, 0777, true);
@@ -82,99 +129,199 @@ touch($LOG_FILE);
 
 $files = glob("$ORIGINAL_DIR/*.{jpg,jpeg,png,webp,tif,tiff,pdf,JPG,JPEG,PNG,WEBP,TIF,TIFF,PDF}", GLOB_BRACE);
 $total = count($files);
-$count = 0;
 
-// ------------------- HELPERS -------------------
-function detectType(string $file): string {
-    exec("vipsheader -f format " . escapeshellarg($file), $out, $ret);
-    if ($ret === 0 && !empty($out)) return trim($out[0]);
-    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-    switch ($ext) {
-        case "pdf": return "pdfload";
-        case "jpg": case "jpeg": return "jpeg";
-        case "png": return "png";
-        case "tif": case "tiff": return "tiff";
-        case "webp": return "webp";
-        default: return "unknown";
-    }
+/***************************************************
+ * HELPERS
+ ***************************************************/
+function logMsg(string $msg, string $file): void
+{
+    file_put_contents($file, $msg . "\n", FILE_APPEND);
 }
 
-function logMsg(string $msg, string $logFile) {
-    file_put_contents($logFile, $msg . "\n", FILE_APPEND);
-}
-
-function progressBar(int $count, int $total) {
+function progressBar(int $count, int $total): void
+{
     $width = 40;
-    $percent = intval($count * 100 / max($total,1));
-    $filled = intval($width * $count / max($total,1));
+    $percent = intval($count * 100 / max(1, $total));
+    $filled = intval($width * $count / max(1, $total));
     $empty = $width - $filled;
-    printf("\r[" . str_repeat("#", $filled) . str_repeat("-", $empty) . "] %d%% (%d/%d)", $percent, $count, $total);
+
+    printf("\r[%s%s] %d%% (%d/%d)",
+        str_repeat('#', $filled),
+        str_repeat('-', $empty),
+        $percent, $count, $total
+    );
 }
 
-function processFile(string $img, array $config) {
+/***************************************************
+ * TYPE DETECTION
+ ***************************************************/
+function detectType(string $file, bool $useVips): string
+{
+    if ($useVips) {
+        $o = $ret = null;
+        exec('vipsheader -f format ' . escapeshellarg($file), $o, $ret);
+        if ($ret === 0 && !empty($o)) {
+            return trim($o[0]);
+        }
+    }
+    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    if ($ext === 'pdf') {
+        return 'pdfload';
+    }
+    return 'image';
+}
+
+/***************************************************
+ * RUN EXECS WITH FALLBACK
+ ***************************************************/
+function runVipsOrConvert(string $vipsCmd, string $convertCmd, bool $useVips): void
+{
+    if ($useVips) {
+        $o = $ret = null;
+        exec($vipsCmd, $o, $ret);
+        if ($ret === 0) {
+            return;
+        }
+    }
+    exec($convertCmd);
+}
+
+/***************************************************
+ * PROCESS ONE FILE
+ ***************************************************/
+function processFile(string $img, array $cfg): void
+{
     $base = basename($img);
-    $filetype = detectType($img);
-    if ($filetype === "unknown") {
-        logMsg("[skip] Unknown: $base", $config['log_file']);
+    $filetype = detectType($img, $cfg['use_vips']);
+
+    if ($filetype === 'unknown') {
+        logMsg("[skip] Unknown: $base", $cfg['log_file']);
         return;
     }
 
-    $filename = pathinfo($base, PATHINFO_FILENAME) . ".jpg";
-    $large_out = $config['large_dir'] . "/$filename";
-    $medium_out = $config['medium_dir'] . "/$filename";
-    $square_out = $config['square_dir'] . "/$filename";
+    $filename = pathinfo($base, PATHINFO_FILENAME) . '.jpg';
+    $large_out = "{$cfg['large_dir']}/$filename";
+    $medium_out = "{$cfg['medium_dir']}/$filename";
+    $squareOut = "{$cfg['square_dir']}/$filename";
 
-    if ($config['mode'] === "missing" && file_exists($large_out) && file_exists($medium_out) && file_exists($square_out)) {
-        logMsg("[skip] $base", $config['log_file']);
+    if ($cfg['mode'] === 'missing'
+        && file_exists($large_out)
+        && file_exists($medium_out)
+        && file_exists($squareOut)) {
+        logMsg("[skip] $base", $cfg['log_file']);
         return;
     }
 
-    logMsg("[process] $base ($filetype)", $config['log_file']);
+    logMsg("[process] $base ($filetype)", $cfg['log_file']);
 
-    $thumbnail_input = $img;
-    $is_pdf = false;
-    $temp_flattened = "";
+    $thumbSrc = $img;
+    $tempPDF = null;
 
-    if ($filetype === "pdfload") {
-        $is_pdf = true;
-        $temp_flattened = tempnam(sys_get_temp_dir(), "pdf_flat_") . ".jpg";
-        if (!$config['dryrun']) {
-            $cmd = sprintf(
+    /********************
+     * PDF HANDLING
+     ********************/
+    if ($filetype === 'pdfload') {
+        $tempPDF = tempnam(sys_get_temp_dir(), 'pdf') . '.jpg';
+
+        if (!$cfg['dryrun']) {
+            $vipsPDF = sprintf(
                 "vips pdfload %s %s --page=0 --dpi=%d --n=1 --access=sequential --flatten --background '255 255 255'",
                 escapeshellarg($img),
-                escapeshellarg($temp_flattened),
-                $config['pdf_dpi']
+                escapeshellarg($tempPDF),
+                $cfg['pdf_dpi']
             );
-            exec($cmd);
+
+            $convertPDF = sprintf(
+                'convert -density %d %s[0] -background white -flatten %s',
+                $cfg['pdf_dpi'],
+                escapeshellarg($img),
+                escapeshellarg($tempPDF)
+            );
+
+            runVipsOrConvert($vipsPDF, $convertPDF, $cfg['use_vips']);
         }
-        $thumbnail_input = $temp_flattened;
+
+        $thumbSrc = $tempPDF;
     }
 
-    if (!$config['dryrun']) {
-        exec("vips thumbnail " . escapeshellarg($thumbnail_input) . " " . escapeshellarg($large_out) . " {$config['large_size']} --size=down");
-        exec("vips thumbnail " . escapeshellarg($thumbnail_input) . " " . escapeshellarg($medium_out) . " {$config['medium_size']} --size=down");
+    if (!$cfg['dryrun']) {
 
-        switch ($config['crop_mode']) {
-            case "centre": case "center":
-                exec("vips thumbnail " . escapeshellarg($thumbnail_input) . " " . escapeshellarg($square_out) . " {$config['square_size']}x{$config['square_size']} --crop=centre");
-                break;
-            case "entropy":
-            case "attention":
-            case "face":
-            case "document":
-                exec("vips smartcrop " . escapeshellarg($thumbnail_input) . " " . escapeshellarg($square_out) . " {$config['square_size']} {$config['square_size']} --interesting={$config['crop_mode']}");
-                break;
-            default:
-                exec("vips thumbnail " . escapeshellarg($thumbnail_input) . " " . escapeshellarg($square_out) . " {$config['square_size']}x{$config['square_size']} --crop=centre");
-        }
+        /********************
+         * LARGE
+         ********************/
+        $thumbSize = $cfg['large_size'];
+
+        runVipsOrConvert(
+            'vips thumbnail '
+                . escapeshellarg($thumbSrc)
+                . ' ' . escapeshellarg($large_out)
+                . " $thumbSize --size=down",
+
+            'convert '
+                . escapeshellarg($thumbSrc)
+                . " -resize {$thumbSize}x{$thumbSize}> "
+                . escapeshellarg($large_out),
+
+            $cfg['use_vips']
+        );
+
+        /********************
+         * MEDIUM
+         ********************/
+        $thumbSize = $cfg['medium_size'];
+
+        runVipsOrConvert(
+            'vips thumbnail '
+                . escapeshellarg($thumbSrc)
+                . ' ' . escapeshellarg($medium_out)
+                . " $thumbSize --size=down",
+
+            'convert '
+                . escapeshellarg($thumbSrc)
+                . " -resize {$thumbSize}x{$thumbSize}> "
+                . escapeshellarg($medium_out),
+
+            $cfg['use_vips']
+        );
+
+        /********************
+         * SQUARE
+         ********************/
+        $thumbSize = $cfg['square_size'];
+
+        // --- VIPS ---
+        $vipsCmd =
+        'vips thumbnail '
+            . escapeshellarg($thumbSrc)
+            . ' '
+            . escapeshellarg($squareOut)
+            . ' ' . $thumbSize
+            . ' --height ' . $thumbSize
+            . ' --size both'
+            . " --crop {$cfg['crop_mode']}";
+
+        // --- Convert fallback ---
+        // Convert has no entropy/attention modes like VIPS,
+        // but it can be emulated using -gravity center.
+        $convertCmd =
+        'convert '
+            . escapeshellarg($thumbSrc)
+            . " -resize {$thumbSize}x{$thumbSize}^"
+            . ' -gravity center'
+            . " -extent {$thumbSize}x{$thumbSize} "
+            . escapeshellarg($squareOut);
+
+        runVipsOrConvert($vipsCmd, $convertCmd, $cfg['use_vips']);
     }
 
-    if ($is_pdf && !$config['dryrun']) {
-        @unlink($temp_flattened);
+    if ($tempPDF && !$cfg['dryrun']) {
+        @unlink($tempPDF);
     }
 }
 
-// ------------------- CONFIG ARRAY -------------------
+/***************************************************
+ * CONFIG STRUCT FOR PASSING
+ ***************************************************/
 $config = [
     'mode' => $MODE,
     'dryrun' => $DRYRUN,
@@ -186,61 +333,75 @@ $config = [
     'medium_size' => $MEDIUM_SIZE,
     'square_size' => $SQUARE_SIZE,
     'pdf_dpi' => $PDF_DPI,
-    'crop_mode' => $CROP_MODE
+    'crop_mode' => $CROP_MODE,
+    'use_vips' => $USE_VIPS,
 ];
 
-echo "Mode: $MODE\nParallel jobs: $PARALLEL\nDry-run: " . ($DRYRUN ? "true" : "false") . "\nProgress: " . ($PROGRESS ? "true" : "false") . "\nPDF DPI: $PDF_DPI\nCrop mode: $CROP_MODE\nLog-file: $LOG_FILE\nFound $total files\n\n";
-echo "Starting...\n";
+/***************************************************
+ * RUN
+ ***************************************************/
+echo "Mode: $MODE\nParallel: $PARALLEL\nUsing VIPS: " . ($USE_VIPS ? 'yes' : 'no') . "\nFound $total files\nStarting...\n";
 
-// ------------------- PARALLEL PROCESSING -------------------
 if ($PARALLEL > 1) {
+    /**************
+     * PARALLEL
+     **************/
+
     $pool = [];
-    $finishedCount = 0;
+    $finished = 0;
+    $status = null;
+
     foreach ($files as $img) {
-        // Limit number of concurrent children
+
         while (count($pool) >= $PARALLEL) {
             foreach ($pool as $key => $pid) {
-                $res = pcntl_waitpid($pid, $status, WNOHANG);
-                if ($res > 0) {
+                $done = pcntl_waitpid($pid, $status, WNOHANG);
+                if ($done > 0) {
                     unset($pool[$key]);
-                    $finishedCount++;
-                    if ($PROGRESS) progressBar($finishedCount, $total);
+                    $finished++;
+                    if ($PROGRESS) {
+                        progressBar($finished, $total);
+                    }
                 }
             }
             usleep(50000);
         }
 
         $pid = pcntl_fork();
-        if ($pid == -1) {
-            die("Failed to fork process\n");
-        } elseif ($pid) {
-            // parent
-            $pool[] = $pid;
-        } else {
-            // child
+        if ($pid === -1) {
+            die("Failed to fork.\n");
+        }
+        if ($pid === 0) {
             processFile($img, $config);
             exit(0);
         }
+        $pool[] = $pid;
     }
 
-    // Wait for remaining children
-    while (count($pool) > 0) {
+    while (!empty($pool)) {
         foreach ($pool as $key => $pid) {
-            $res = pcntl_waitpid($pid, $status, WNOHANG);
-            if ($res > 0) {
+            $done = pcntl_waitpid($pid, $status, WNOHANG);
+            if ($done > 0) {
                 unset($pool[$key]);
-                $finishedCount++;
-                if ($PROGRESS) progressBar($finishedCount, $total);
+                $finished++;
+                if ($PROGRESS) {
+                    progressBar($finished, $total);
+                }
             }
         }
         usleep(50000);
     }
 
 } else {
+    /**************
+     * SERIAL
+     **************/
+
+    $count = 0;
     foreach ($files as $img) {
         processFile($img, $config);
+        $count++;
         if ($PROGRESS) {
-            $count++;
             progressBar($count, $total);
         }
     }
