@@ -22,3 +22,10 @@ $translate = $plugins->get('translate');
 $connection = $services->get('Omeka\Connection');
 $messenger = $plugins->get('messenger');
 $entityManager = $services->get('Omeka\EntityManager');
+
+if (version_compare($oldVersion, '3.4.3', '<')) {
+    $message = new PsrMessage(
+        'A quick script has been included to create thumbnails very quickly from command line.' // @translate
+    );
+    $messenger->addSuccess($message);
+}
