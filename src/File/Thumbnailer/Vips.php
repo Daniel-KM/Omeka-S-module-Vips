@@ -8,7 +8,7 @@ use Omeka\File\Thumbnailer\AbstractThumbnailer;
 
 class Vips extends AbstractThumbnailer
 {
-   /**
+    /**
      * @var TempFileFactory
      */
     protected $tempFileFactory;
@@ -48,7 +48,7 @@ class Vips extends AbstractThumbnailer
 
         $args = [];
 
-        /**
+        /*
          * @todo The options are not available on php-vips, or don't use ::thumbnail.
 
         // Available parameters on load.

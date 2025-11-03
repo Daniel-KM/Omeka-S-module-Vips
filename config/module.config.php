@@ -8,7 +8,7 @@ return [
             'square' => [
                 'options' => [
                     // Vips interesting: none, centre, entropy, attention, low, high.
-                    // When not set, use main gravity (center by default)..
+                    // When not set, use main gravity (centre by default).
                     'vips_gravity' => 'attention',
                 ],
             ],
@@ -35,7 +35,7 @@ return [
     'translator' => [
         'translation_file_patterns' => [
             [
-                'type' => 'gettext',
+                'type' => \Laminas\I18n\Translator\Loader\Gettext::class,
                 'base_dir' => dirname(__DIR__) . '/language',
                 'pattern' => '%s.mo',
                 'text_domain' => null,

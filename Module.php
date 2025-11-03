@@ -47,12 +47,12 @@ class Module extends AbstractModule
             return;
         }
         $config['service_manager']['aliases']['Omeka\File\Thumbnailer'] = extension_loaded('vips')
-            ? 'Vips\File\Thumbnailer\Vips'
-            : 'Vips\File\Thumbnailer\VipsCli';
+            ? \Vips\File\Thumbnailer\Vips::class
+            : \Vips\File\Thumbnailer\VipsCli::class;
         $configListener->setMergedConfig($config);
     }
 
-    public function install(ServiceLocatorInterface $services)
+    public function install(ServiceLocatorInterface $services): void
     {
         /**
          * @var \Omeka\Stdlib\Cli $cli
