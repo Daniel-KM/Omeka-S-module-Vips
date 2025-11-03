@@ -162,7 +162,7 @@ class Module extends AbstractModule
                 $imageMagickPath = sprintf('%s/convert', $imageMagickDir);
                 $result = $cli->execute(sprintf('%s --version', $imageMagickPath));
                 return $result
-                    ? str_replace('Version:', '', strtok($result, "\n"))
+                    ? strtr(strtok($result, "\n"), ['Version:' => ''])
                     : $translate('[Unable to execute command]');
             case \Omeka\File\Thumbnailer\NoThumbnail::class:
                 return '';
