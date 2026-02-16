@@ -15,8 +15,8 @@ class Vips extends AbstractThumbnailer
 
     public function __construct(TempFileFactory $tempFileFactory)
     {
-        if (!extension_loaded('vips')) {
-            throw new Exception\InvalidThumbnailerException('The vips PHP extension must be loaded to use this thumbnailer.'); // @translate
+        if (!extension_loaded('vips') && !extension_loaded('ffi')) {
+            throw new Exception\InvalidThumbnailerException('The vips PHP extension (ext-vips or ext-ffi) must be loaded to use this thumbnailer.'); // @translate
         }
         $this->tempFileFactory = $tempFileFactory;
     }

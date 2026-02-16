@@ -19,9 +19,12 @@ class Module extends AbstractModule
 {
     public function init(ModuleManager $moduleManager): void
     {
-        // To use the module without php-vips, skip composer.
-        // TODO Find a better way to manage the module without php-vips.
-        if (extension_loaded('vips')) {
+        // The library jcupitt/vips is optional (suggest, not require): it is
+        // only needed for PHP library mode, not for CLI mode.
+        // v1 requires ext-vips, v2 requires ext-ffi.
+        if ((extension_loaded('vips') || extension_loaded('ffi'))
+            && file_exists(__DIR__ . '/vendor/autoload.php')
+        ) {
             require_once __DIR__ . '/vendor/autoload.php';
         }
 
@@ -35,6 +38,9 @@ class Module extends AbstractModule
 
     /**
      * Force thumbnailer = vips/vipscli in config, else this module is useless.
+     *
+     * The php extension mode requires both ext-vips and the library jcupitt/vips.
+     * When the library is not installed (suggest, not require), fall back to cli.
      */
     public function onEventMergeConfig(ModuleEvent $event): void
     {
@@ -46,7 +52,7 @@ class Module extends AbstractModule
         if (in_array($thumbnailer, ['Vips\File\Thumbnailer\Vips', 'Vips\File\Thumbnailer\VipsCli'])) {
             return;
         }
-        $config['service_manager']['aliases']['Omeka\File\Thumbnailer'] = extension_loaded('vips')
+        $config['service_manager']['aliases']['Omeka\File\Thumbnailer'] = $this->hasVipsLibrary()
             ? \Vips\File\Thumbnailer\Vips::class
             : \Vips\File\Thumbnailer\VipsCli::class;
         $configListener->setMergedConfig($config);
@@ -63,21 +69,75 @@ class Module extends AbstractModule
         $translate = $plugins->get('translate');
         $messenger = $plugins->get('messenger');
 
-        // Check if vips is installed.
-        $hasVips = extension_loaded('vips');
+        $hasVipsLibrary = $this->hasVipsLibrary();
         $hasVipsCli = (bool) $cli->getCommandPath('vips');
-        if (!$hasVips && !$hasVipsCli) {
+        if (!$hasVipsLibrary && !$hasVipsCli) {
             $message = new \Omeka\Stdlib\Message(
-                $translate('The php extension "php-vips" (recommended) or the library "vips" should be installed first to use this module.') // @translate
+                $translate('The php extension "php-vips" with library "jcupitt/vips" (recommended) or the command line tool "vips" should be installed first to use this module.') // @translate
             );
             throw new \Omeka\Module\Exception\ModuleCannotInstallException((string) $message);
         }
 
-        if (!$hasVips) {
+        if (!$hasVipsLibrary && $hasVipsCli) {
             $messenger->addWarning(new \Omeka\Stdlib\Message(
-                'It is recommnded to use the php extension "php-vips" instead of the cli "vips" for performance, unless you have memory issues on big images.' // @translate
+                'It is recommended to use the php extension "php-vips" with library "jcupitt/vips" (composer require jcupitt/vips:^1.0) instead of the cli "vips" for performance, unless you have memory issues on big images.' // @translate
             ));
         }
+
+        if (extension_loaded('vips') && !class_exists(\Jcupitt\Vips\Image::class)) {
+            $messenger->addWarning(new \Omeka\Stdlib\Message(
+                'The php extension "php-vips" is loaded, but the library "jcupitt/vips" is not installed. Run "composer require jcupitt/vips:^1.0" in the module directory, else the cli tool will be used as fallback.' // @translate
+            ));
+        }
+
+        // Check jcupitt/vips v2 specific requirements.
+        if ($hasVipsLibrary && $this->isVipsLibraryV2()) {
+            if (!extension_loaded('ffi')) {
+                $messenger->addError(new \Omeka\Stdlib\Message(
+                    'The library "jcupitt/vips" v2 requires the PHP extension "ffi". Either install ext-ffi and set "ffi.enable=true" in php.ini, or downgrade to "jcupitt/vips" v1 which uses ext-vips instead.' // @translate
+                ));
+            } elseif (!in_array(ini_get('ffi.enable'), ['1', 'true'], true)) {
+                $messenger->addWarning(new \Omeka\Stdlib\Message(
+                    'The library "jcupitt/vips" v2 requires "ffi.enable=true" in php.ini (not "preload"). Current value: "%s".', // @translate
+                    ini_get('ffi.enable') ?: 'false'
+                ));
+            }
+            if (PHP_VERSION_ID >= 80300) {
+                $stackSize = ini_get('zend.max_allowed_stack_size');
+                if ($stackSize !== '-1' && $stackSize !== '0') {
+                    $messenger->addWarning(new \Omeka\Stdlib\Message(
+                        'With PHP 8.3+, the library "jcupitt/vips" v2 may require "zend.max_allowed_stack_size=-1" in php.ini. Current value: "%s".', // @translate
+                        $stackSize ?: 'default'
+                    ));
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if the library jcupitt/vips and a compatible PHP extension are both
+     * available, which is required for PHP library mode.
+     *
+     * v1 requires ext-vips, v2 requires ext-ffi.
+     */
+    public function hasVipsLibrary(): bool
+    {
+        if (!class_exists(\Jcupitt\Vips\Image::class)) {
+            return false;
+        }
+        // v1 requires ext-vips, v2 requires ext-ffi.
+        return extension_loaded('vips') || extension_loaded('ffi');
+    }
+
+    /**
+     * Check if the installed jcupitt/vips library is v2 (FFI-based).
+     *
+     * v2 uses PHP FFI instead of the custom ext-vips PHP extension.
+     * It can be detected by the presence of the \Jcupitt\Vips\FFI class.
+     */
+    public function isVipsLibraryV2(): bool
+    {
+        return class_exists(\Jcupitt\Vips\FFI::class);
     }
 
     public function attachListeners(SharedEventManagerInterface $sharedEventManager): void
@@ -206,7 +266,7 @@ class Module extends AbstractModule
         if (!$vipsDir) {
             $vipsDir = (string) preg_replace('/vips$/', '', $cli->getCommandPath('vips'));
         }
-        return $vipsDir;
+        return rtrim($vipsDir, '/');
     }
 
     protected function getVipsPath(): string
