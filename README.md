@@ -28,69 +28,87 @@ Installation
 
 See general end user documentation for [installing a module].
 
+The module manages the calls to vips, so vips must be installed on the server.
+
 ### Module
 
-The module uses an external library, [jcupitt/vips], so use the release zip
-to install it, or use and init the source.
+The module can work in two modes:
+- Php library mode (recommended): uses the composer library [jcupitt/vips] for
+  best performance. The library v1 requires the php extension ext-vips, the
+  library v2 requires ext-ffi.
+- Cli mode: uses the `vips` command-line tool directly, without any php
+  extension or composer dependency.
+
+The module automatically detects the available mode and selects the best one.
+If both are available, the PHP library mode is preferred.
 
 * From the zip
 
-Download the last release [Vips.zip] from the list of releases (the "master"
-does not contain the dependency), and uncompress it in the `modules` directory.
+Download the last release [Vips.zip] from the list of releases and uncompress it
+in the `modules` directory. The zip works in cli mode out of the box. For PHP
+library mode, run `composer require jcupitt/vips:^1.0` (or `^2.0`) inside the
+module directory after extraction.
 
 * From the source and for development
 
 If the module was installed from the source, rename the name of the folder of
-the module to `Vips`, go to the root module, and run:
+the module to `Vips`.
+
+For PHP library mode (recommended), go to the root of the module and run:
 
 ```sh
-composer install --no-dev
+# v1 (requires ext-vips):
+composer require jcupitt/vips:^1.0 --no-dev
+# or v2 (requires ext-ffi with ffi.enable=true in php.ini, less secure):
+composer require jcupitt/vips:^2.0 --no-dev
 ```
 
-**Important**: if you don't have php-vips installed but only the package for
-cli vips, don't run this command, because it will fail. The module don't need
-the composer packages to run vips via the cli.
+For CLI mode, no composer dependency is needed: the module uses the `vips`
+command-line tool directly. See below [section Vips](#vips).
 
 Then install it like any other Omeka module and follow the config instructions.
 
-### Note on the version of the library jcupitt/vips
+* For test
 
-There are two version of the library [jcupitt/vips]. Since version 2, the
-library requires a specific configuration in php.ini: ffi must be enabled
-globally. See [php doc on ffi] for more  information. Furthermore, for php 8.3,
-the key `zend.max_allowed_stack_size=-1` should be added to the php.ini.
+The module includes a comprehensive test suite with unit and functional tests.
+Run them from the root of Omeka:
 
-So the module integrates the last version of the branch 1, but you can update
-composer and use version 2 if your environnment and php.ini are ready and if you
-still need more performance (undetermined).
+```sh
+vendor/bin/phpunit -c modules/Vips/phpunit.xml --testdox
+```
+
+**Note**: Some tests may be skipped according to the mode of install (with
+php-vips or cli vips).
 
 ### Vips
 
 The library [vips] must be installed on the server.
 
-Two thumbnailers can be installed: the command line tool libvips or the php
-extension php-vips. This extension is recommended for the speed (two times
-quicker), but in the rare cases where there are big images that require more
-memory than the php one, the cli tool should be used. The php extension is a
-recent development that may not be available on old linux distributions.
+There are three ways to use it, depending on the mode:
 
-#### As php extension
+- the command line tool libvips, a simple package available in all linux
+  distributions.
+- the php library jcupitt/vips (v1) with ext-vips. This is recommended for the
+  speed (two times quicker), but in the rare cases where there are big images
+  that require more memory than the php one, the cli tool should be used.
+- the php library jcupitt/vips (v2) with ext-ffi. The new version of the library
+  requires only the extension `ffi` enabled on the server. The performance is
+  the same than v1.
 
-To install the php extension [php-vips] on Debian/Ubuntu, just run this command,
-with option "--no-install-recommends" to avoid to install the heavy and useless
-graphical interface:
+There are two versions of the library [jcupitt/vips]. Both have the same API and
+are compatible with this module. The module automatically detects the installed
+version.
 
-```sh
-sudo apt install --no-install-recommends php-vips
-```
+- v1: requires the php extension `ext-vips` (installed as system package or via
+  pecl, see below). Simpler to set up. **Recommended for production.**
+- v2: requires the php extension `ext-ffi` with `ffi.enable=true` in php.ini
+  (not `preload`), and another key for php 8.3+ (see below). See [php doc on ffi]
+  for more information. It avoids the need for a custom php extension, but
+  **`ffi.enable=true` has security implications**: FFI allows PHP to call any C
+  function and access memory directly, bypassing `disable_functions` and `open_basedir` restrictions. The PHP documentation [recommends against enabling FFI globally in production].
+  So use v1 or cli mode on sensitive servers.
 
-or for on Centos/RedHat:
-
-```sh
-sudo dnf install php-vips
-```
-
-#### As cli
+#### As standard package for cli
 
 To install the cli tool on Debian/Ubuntu, just run this command, with option
 "--no-install-recommends" to avoid to install the heavy and useless graphical
@@ -107,13 +125,86 @@ sudo dnf install vips-tools
 ```
 
 Recommanded version is 8.10 or higher. Versions prior to 8.4 have not been
-tested.
+tested. 8.16 or higher supports jpeg2000.
 
+#### As standard php extension with jcupitt/vips v1 (php-vips)
+
+The extension php-vips is only needed for jcupitt/vips v1. It can be installed
+in two ways, depending on distribution: via package or pecl.
+
+##### php-vips via package
+
+To install the php extension [php-vips] on Debian/Ubuntu, just run this command,
+with option "--no-install-recommends" to avoid to install the heavy and useless
+graphical interface:
+
+```sh
+sudo apt install --no-install-recommends php-vips
+```
+
+or for on Centos/RedHat:
+
+```sh
+sudo dnf install php-vips
+```
+
+##### php-vips via pecl
+
+If the php-vips package is not available for your distribution, or if you need a
+more recent version, you can install it via [pecl].
+
+For Debian/Ubuntu:
+
+```sh
+# Install the libvips development files and the PHP development tools.
+sudo apt install --no-install-recommends libvips-dev php-dev php-pear
+# install the extension via pecl.
+sudo pecl install vips
+# Enable the extension with a dedicated ini (adapt it for your php version).
+echo "extension=vips.so" | sudo tee /etc/php/8.1/mods-available/vips.ini
+sudo phpenmod vips
+```
+
+For Centos/RedHat:
+
+```sh
+# Install the libvips development files and the PHP development tools.
+sudo dnf install vips-devel php-devel php-pear
+# install the extension via pecl.
+sudo pecl install vips
+# Enable the extension with a dedicated ini (adapt it for your php config).
+echo "extension=vips.so" | sudo tee /etc/php.d/20-vips.ini
+```
+
+Finally, restart the web server of php-fpm:
+
+```sh
+# Either Apache:
+sudo systemctl restart apache2
+# or php-fpm:
+sudo systemctl restart php8.1-fpm
+```
+
+Check the installation with:
+
+```sh
+php -m | grep vips
+```
+
+#### As standard php extension with jcupitt/vips v2 (with php-ffi enabled)
+
+For jcupitt/vips v2, only `ext-ffi` is required, which is standard since php 7.4,
+but it requires the setting `ffi.enable=true` in php.ini, that is not enabled by
+default.
+
+Furthermore, for php 8.3+, the key `zend.max_allowed_stack_size=-1` should be
+added to php.ini.
 
 ### Vips as default thumbnailer
 
 When the module is enabled, the [default thumbnailer] is automatically set to
-Vips, when the extension php-vips is available, or VipsCli.
+Vips when the library jcupitt/vips is available (with ext-vips or ext-ffi), or
+VipsCli otherwise.
 
 The main interest to use Vips as thumbnailer is not only the performance, but
 the possibility to center on the region of interest when cropping the image to
@@ -137,7 +228,7 @@ the root of Omeka:
     ],
     'service_manager' => [
         'aliases' => [
-            // Automatically set by the module (or VipsCli if php extension php-vips is unavailable).
+            // Automatically set by the module (or VipsCli if the library jcupitt/vips is unavailable).
             'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\Vips',
         ],
     ],
@@ -234,7 +325,9 @@ Copyright
 [thumbnailer used by Wikipedia]: https://www.mediawiki.org/wiki/Extension:VipsScaler
 [jcupitt/vips]: https://packagist.org/packages/jcupitt/vips
 [php doc on ffi]: https://www.php.net/manual/en/ffi.configuration.php
+[recommends against enabling FFI globally in production]: https://www.php.net/manual/en/ffi.intro.php
 [php-vips]: https://github.com/libvips/php-vips
+[pecl]: https://pecl.php.net/package/vips
 [Vips.zip]: https://gitlab.com/Daniel-KM/Omeka-S-module-Vips/-/releases
 [default thumbnailer]: https://omeka.org/s/docs/user-manual/configuration/#thumbnails
 [OpenJpeg]: https://github.com/uclouvain/openjpeg
