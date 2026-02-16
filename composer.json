@@ -1,18 +1,46 @@
 {
     "name": "daniel-km/omeka-s-module-vips",
-    "description": "Module for Omeka S that integrate the library vips to create thumbnails a lot quicker and with less memory.",
-    "type": "library",
+    "type": "omeka-s-module",
+    "description": "Module for Omeka S: Create thumbnails with Vips, the quickest and memory efficient library to create thumbnails with advanced features.",
+    "keywords": [
+        "Omeka S",
+        "Omeka S module",
+        "image server",
+        "thumbnailer",
+        "vips"
+    ],
     "license": "CECILL-2.1",
+    "homepage": "https://gitlab.com/Daniel-KM/Omeka-S-module-Vips",
     "authors": [
         {
             "name": "Daniel Berthereau",
-            "email": "Daniel.git@Berthereau.net"
+            "email": "Daniel.packagist@Berthereau.net"
         }
     ],
+    "support": {
+        "issues": "https://gitlab.com/Daniel-KM/Omeka-S-module-Vips/-/issues",
+        "forum": "https://forum.omeka.org/"
+    },
+    "_require (not set until Omeka S merges PR #2412)": {
+        "omeka/omeka-s": "^4.0"
+    },
     "require": {
         "jcupitt/vips": "^1.0"
     },
-    "replace" : {
-        "psr/log" : "*"
+    "replace": {
+        "psr/log": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Vips\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "VipsTest\\": "tests/VipsTest/"
+        }
+    },
+    "extra": {
+        "installer-name": "Vips"
     }
 }
