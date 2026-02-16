@@ -115,7 +115,10 @@ class Vips extends AbstractThumbnailer
                     $gravity = 'attention';
                 }
             } else {
-                $gravity = $vipsCrop[$options['vips_gravity']] ?? 'attention';
+                $gravity = strtolower($options['vips_gravity']);
+                if (!in_array($gravity, $vipsCrop)) {
+                    $gravity = 'attention';
+                }
             }
             $args['crop'] = $gravity;
         } else {

@@ -24,6 +24,13 @@ class VipsCli extends AbstractThumbnailer
     protected $isOldVips;
 
     /**
+     * Cached vips version string (e.g. "vips-8.15.3").
+     *
+     * @var string
+     */
+    protected $vipsVersion;
+
+    /**
      * @var Cli
      */
     protected $cli;
@@ -133,11 +140,18 @@ class VipsCli extends AbstractThumbnailer
                 'south' => 'low',
                 'southeast' => 'low',
             ];
-            $gravity = isset($options['gravity']) ? strtolower($options['gravity']) : 'attention';
-            if (isset($mapImagickToVips[$gravity])) {
-                $gravity = $mapImagickToVips[$gravity];
-            } elseif (!in_array($gravity, $vipsCrop)) {
-                $gravity = 'attention';
+            if (!empty($options['vips_gravity'])) {
+                $gravity = strtolower($options['vips_gravity']);
+                if (!in_array($gravity, $vipsCrop)) {
+                    $gravity = 'attention';
+                }
+            } else {
+                $gravity = isset($options['gravity']) ? strtolower($options['gravity']) : 'attention';
+                if (isset($mapImagickToVips[$gravity])) {
+                    $gravity = $mapImagickToVips[$gravity];
+                } elseif (!in_array($gravity, $vipsCrop)) {
+                    $gravity = 'attention';
+                }
             }
             $crop = ' --crop ' . $gravity;
         } else {
@@ -179,7 +193,7 @@ class VipsCli extends AbstractThumbnailer
             (int) $newWidth,
             (int) $newHeight,
             $crop,
-            $this->getOption('autoOrient', true) ? ' --no-rotate' : '',
+            !$this->getOption('autoOrient', true) && version_compare($this->getVipsVersion(), 'vips-8.8', '>=') ? ' --no-rotate' : '',
             $strategy === 'square' ? 'both' : 'down'
         );
 
@@ -197,7 +211,7 @@ class VipsCli extends AbstractThumbnailer
         // required when there are more than one operation.
         // So for old vips, use the basic thumbnailer currently.
         // @link https://libvips.github.io/libvips/API/current/using-cli.html
-        // @see \Vips\Vips\Vips::transform()
+        // @see \Vips\File\Thumbnailer\Vips::create()
 
         $origPath = $this->source;
 
@@ -234,18 +248,16 @@ class VipsCli extends AbstractThumbnailer
      */
     public function setVipsPath($vipsDir): self
     {
-        if ($vipsDir === null) {
+        if ($vipsDir === null || $vipsDir === '') {
             $vipsPath = $this->cli->getCommandPath(self::VIPS_COMMAND);
             if (false === $vipsPath) {
                 throw new Exception\InvalidThumbnailerException('Vips error: cannot determine path to vips command.');
             }
-        } elseif ($vipsDir) {
+        } else {
             $vipsPath = $this->cli->validateCommand($vipsDir, self::VIPS_COMMAND);
             if (false === $vipsPath) {
                 throw new Exception\InvalidThumbnailerException('Vips error: invalid vips command.');
             }
-        } else {
-            $vipsPath = false;
         }
         $this->vipsPath = $vipsPath;
         return $this;
@@ -260,9 +272,19 @@ class VipsCli extends AbstractThumbnailer
     public function getIsOldVips(): bool
     {
         if ($this->isOldVips === null) {
-            $version = (string) $this->cli->execute($this->vipsPath . ' --version');
-            $this->isOldVips = version_compare($version, 'vips-8.6', '<');
+            $this->isOldVips = version_compare($this->getVipsVersion(), 'vips-8.6', '<');
         }
         return $this->isOldVips;
+    }
+
+    /**
+     * Get the cached vips version string.
+     */
+    protected function getVipsVersion(): string
+    {
+        if ($this->vipsVersion === null) {
+            $this->vipsVersion = (string) $this->cli->execute($this->vipsPath . ' --version');
+        }
+        return $this->vipsVersion;
     }
 }
