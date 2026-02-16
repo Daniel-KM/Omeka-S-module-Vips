@@ -313,7 +313,7 @@ The module uses [vips] and library [jcupitt/vips]. See their licence on the site
 Copyright
 ---------
 
-* Copyright Daniel Berthereau, 2020-2025 (see [Daniel-KM])
+* Copyright Daniel Berthereau, 2020-2026 (see [Daniel-KM])
 
 
 [Vips thumbnailer]: https://gitlab.com/Daniel-KM/Omeka-S-module-Vips

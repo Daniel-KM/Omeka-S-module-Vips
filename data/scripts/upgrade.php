@@ -24,7 +24,7 @@ $messenger = $plugins->get('messenger');
 $entityManager = $services->get('Omeka\EntityManager');
 
 if (version_compare($oldVersion, '3.4.3', '<')) {
-    $message = new PsrMessage(
+    $message = new \Omeka\Stdlib\Message(
         'A quick script has been included to create thumbnails very quickly from command line.' // @translate
     );
     $messenger->addSuccess($message);
