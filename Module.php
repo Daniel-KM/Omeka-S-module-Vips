@@ -123,7 +123,8 @@ class Module extends AbstractModule
         $info['Thumbnailer'] = [
             'Name' => $thumbnailer,
             'Version' => $this->getThumbnailerVersion($thumbnailer),
-            // TODO Add the list of supported image formats.
+            'Supported formats (save)' => $this->getSupportedFormats('save'),
+            'Supported formats (load)' => $this->getSupportedFormats('load'),
         ];
 
         $event->setParam('info', $info);
@@ -211,5 +212,45 @@ class Module extends AbstractModule
     protected function getVipsPath(): string
     {
         return sprintf('%s/vips', $this->getVipsDir());
+    }
+
+    /**
+     * Get the list of image formats supported by vips for load or save.
+     */
+    protected function getSupportedFormats(string $direction = 'save'): string
+    {
+        $services = $this->getServiceLocator();
+        $cli = $services->get('Omeka\Cli');
+
+        $vipsPath = $this->getVipsPath();
+        $command = sprintf(
+            '%s -l | grep -i %s',
+            $vipsPath,
+            escapeshellarg($direction)
+        );
+        $result = $cli->execute($command);
+        if (!$result) {
+            return '';
+        }
+
+        $matches = [];
+        preg_match_all('~\(\.(?<extensions>[.a-z0-9, ]+)\)~m', $result, $matches, PREG_SET_ORDER, 0);
+        if (!$matches) {
+            return '';
+        }
+
+        $extensions = [];
+        foreach ($matches as $match) {
+            $exts = array_map(
+                fn ($v) => trim($v, ',.'),
+                explode(' ', strtolower($match['extensions']))
+            );
+            $extensions = array_merge($extensions, $exts);
+        }
+
+        $extensions = array_unique(array_filter($extensions));
+        sort($extensions);
+
+        return implode(', ', $extensions);
     }
 }
