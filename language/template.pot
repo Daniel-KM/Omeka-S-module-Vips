@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-03 00:00+0000\n"
+"POT-Creation-Date: 2026-02-09 00:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,10 +17,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: Module.php:71
+#: Module.php:76
 msgid ""
-"The php extension \"php-vips\" (recommended) or the library \"vips\" should "
-"be installed first to use this module."
+"The php extension \"php-vips\" with library \"jcupitt/vips\" (recommended) "
+"or the command line tool \"vips\" should be installed first to use this "
+"module."
 msgstr ""
 
 #: data/scripts/upgrade.php:28
@@ -29,10 +30,39 @@ msgid ""
 "command line."
 msgstr ""
 
-#: Module.php:78
+#: Module.php:83
 msgid ""
-"It is recommnded to use the php extension \"php-vips\" instead of the cli "
-"\"vips\" for performance, unless you have memory issues on big images."
+"It is recommended to use the php extension \"php-vips\" with library "
+"\"jcupitt/vips\" (composer require jcupitt/vips) instead of the cli \"vips\" "
+"for performance, unless you have memory issues on big images."
+msgstr ""
+
+#: Module.php:89
+msgid ""
+"The php extension \"php-vips\" is loaded, but the library \"jcupitt/vips\" "
+"is not installed. Run \"composer require jcupitt/vips\" in the module "
+"directory, else the cli tool will be used as fallback."
+msgstr ""
+
+#: Module.php:97
+msgid ""
+"The library \"jcupitt/vips\" v2 requires the PHP extension \"ffi\". Either "
+"install ext-ffi and set \"ffi.enable=true\" in php.ini, or downgrade to "
+"\"jcupitt/vips\" v1 which uses ext-vips instead."
+msgstr ""
+
+#: Module.php:101
+#, php-format
+msgid ""
+"The library \"jcupitt/vips\" v2 requires \"ffi.enable=true\" in php.ini (not "
+"\"preload\"). Current value: \"%s\"."
+msgstr ""
+
+#: Module.php:109
+#, php-format
+msgid ""
+"With PHP 8.3+, the library \"jcupitt/vips\" v2 may require "
+"\"zend.max_allowed_stack_size=-1\" in php.ini. Current value: \"%s\"."
 msgstr ""
 
 #: src/File/Thumbnailer/Vips.php:19
