@@ -19,6 +19,12 @@ thumbnail according to the point of attention, that may not be the center
 Furthermore, a bash or php script is provided to create all thumbnail in bulk
 from the command line very quickly.
 
+Note: the module [Image Server] includes its own CLI-only vips thumbnailer
+(`ImageServer\File\Thumbnailer\Vips`). If both modules are installed, this module
+takes priority because it supports the faster PHP library mode and sets itself
+automatically as the default thumbnailer. The module [Image Server] uses vips
+independently for IIIF image transformations (region extraction, rotation, etc.).
+
 This module requires a package installed on the server that is less common than
 ImageMagick or GD, but provided natively by all main linux distributions: [vips].
 
@@ -124,7 +130,7 @@ or for on Centos/RedHat:
 sudo dnf install vips-tools
 ```
 
-Recommanded version is 8.10 or higher. Versions prior to 8.4 have not been
+Recommended version is 8.10 or higher. Versions prior to 8.4 have not been
 tested. 8.16 or higher supports jpeg2000.
 
 #### As standard php extension with jcupitt/vips v1 (php-vips)
@@ -252,16 +258,13 @@ with a specific crop mode, etc.
 TODO / Bugs
 -----------
 
-- [x] Use the tiled images when available for arbitrary size request (ok for vips/tiled tiff).
 - [x] Add a processor for [php-vips].
 - [x] Use vips as Omeka thumbnailer.
-- [ ] Add auto as default type of tiles (so choose tiled tiff if vips is installed, etc.).
-- [ ] Use the library [OpenJpeg] ("libopenjp2-tools" on Debian, or "openjpeg" on Centos instead of ImageMagick for a [performance] reason: ImageMagick always open the file as a whole even when extracting a small part.
-- [ ] Fix bitonal with vips.
-- [ ] Fix save jp2 with vips/convert.
-- [ ] Add an auto choice for thumbnailer (and select it according to input format) and tile type.
+- [ ] Fix bitonal with vips (vips produces 8-bit grayscale instead of true 1-bit monochrome).
+- [ ] Fix save jp2 with vips (vips does not support jp2 output natively).
+- [ ] Add an auto choice for thumbnailer (and select it according to input format).
 - [ ] Manage icc profile.
-- [ ] Manage option "autoOrient"
+- [ ] Manage option "autoOrient" (done for cli mode, remaining for php extension mode).
 - [ ] Manage option "pdfUseCropBox".
 
 
@@ -316,6 +319,8 @@ Copyright
 * Copyright Daniel Berthereau, 2020-2026 (see [Daniel-KM])
 
 
+[Image Server]: https://gitlab.com/Daniel-KM/Omeka-S-module-ImageServer
+[installing a module]: https://omeka.org/s/docs/user-manual/modules/
 [Vips thumbnailer]: https://gitlab.com/Daniel-KM/Omeka-S-module-Vips
 [Omeka S]: https://omeka.org/s
 [ad says]: https://github.com/libvips/libvips/wiki/Speed-and-memory-use
@@ -330,15 +335,11 @@ Copyright
 [pecl]: https://pecl.php.net/package/vips
 [Vips.zip]: https://gitlab.com/Daniel-KM/Omeka-S-module-Vips/-/releases
 [default thumbnailer]: https://omeka.org/s/docs/user-manual/configuration/#thumbnails
-[OpenJpeg]: https://github.com/uclouvain/openjpeg
-[performance]: https://cantaloupe-project.github.io/manual/4.0/images.html
 [libvips]: https://libvips.github.io/libvips
 [module issues]: https://gitlab.com/Daniel-KM/Omeka-S-module-Vips/-/issues
 [CeCILL v2.1]: https://www.cecill.info/licences/Licence_CeCILL_V2.1-en.html
 [GNU/GPL]: https://www.gnu.org/licenses/gpl-3.0.html
 [FSF]: https://www.fsf.org
 [OSI]: http://opensource.org
-[from Gimp]: https://pippin.gimp.org/sRGBz
-[Universal Viewer plugin for Omeka Classic]: https://gitlab.com/Daniel-KM/Omeka-plugin-UniversalViewer
 [GitLab]: https://gitlab.com/Daniel-KM
 [Daniel-KM]: https://gitlab.com/Daniel-KM "Daniel Berthereau"
