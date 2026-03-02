@@ -76,6 +76,12 @@ class VipsCli extends AbstractThumbnailer
         if ($imageData) {
             $origWidth = $imageData[0];
             $origHeight = $imageData[1];
+            // EXIF orientations 5-8 indicate a 90° or 270°
+            // rotation, so width and height must be swapped.
+            $exif = @exif_read_data($this->source);
+            if ($exif && !empty($exif['Orientation']) && $exif['Orientation'] >= 5) {
+                [$origWidth, $origHeight] = [$origHeight, $origWidth];
+            }
         } else {
             $origWidth = null;
             $origHeight = null;
