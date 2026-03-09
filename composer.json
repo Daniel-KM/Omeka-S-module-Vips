@@ -21,17 +21,18 @@
         "issues": "https://gitlab.com/Daniel-KM/Omeka-S-module-Vips/-/issues",
         "forum": "https://forum.omeka.org/"
     },
-    "_require (not set until Omeka S merges PR #2412)": {
+    "_require (not set until Omeka S merges PR #2432)": {
         "omeka/omeka-s": "^4.0"
     },
     "require": {
-        "sempia/display-warnings": "^1.0"
+        "sempia/display-warnings": "^1.0",
+        "jcupitt/vips": "^1.0"
     },
     "suggest": {
-        "ext-vips": "Php extension for vips (recommended for performance). Not needed for cli mode.",
-        "jcupitt/vips": "Php library for vips (required with ext-vips for php extension mode). Not needed for cli mode."
+        "ext-vips": "Php extension for vips (recommended for performance with jcupitt/vips v1). Not needed for cli mode."
     },
-    "replace": {
+    "provide": {
+        "ext-vips": "*",
         "psr/log": "*"
     },
     "autoload": {
