@@ -2,7 +2,7 @@
 
 namespace Vips\Service\File\Thumbnailer;
 
-use Interop\Container\ContainerInterface;
+use Psr\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use Vips\File\Thumbnailer\VipsCli;
 

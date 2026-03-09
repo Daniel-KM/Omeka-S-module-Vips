@@ -2,7 +2,7 @@
 
 namespace Vips\Service\Controller\Admin;
 
-use Interop\Container\ContainerInterface;
+use Psr\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use Vips\Controller\Admin\SystemInfoController;
 
