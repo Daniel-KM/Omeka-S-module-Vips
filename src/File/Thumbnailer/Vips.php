@@ -160,7 +160,7 @@ class Vips extends AbstractThumbnailer
         try {
             $vips = \Jcupitt\Vips\Image::thumbnail($this->source, $newWidth, $args);
             $vips->writeToFile($tempPath);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             throw new Exception\CannotCreateThumbnailException($e->getMessage(), $e->getCode());
         }
 
