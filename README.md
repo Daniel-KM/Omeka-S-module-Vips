@@ -39,11 +39,11 @@ The module manages the calls to vips, so vips must be installed on the server.
 ### Module
 
 The module can work in two modes:
-- Php library mode (recommended): uses the composer library [jcupitt/vips] for
-  best performance. The library v1 requires the php extension ext-vips, the
-  library v2 requires ext-ffi.
-- Cli mode: uses the `vips` command-line tool directly, without any php
-  extension or composer dependency.
+- Php library mode (default): uses the composer library [jcupitt/vips] v1,
+  included as a dependency. Requires the php extension ext-vips. Alternatively,
+  [jcupitt/vips] v2 can be used with ext-ffi instead.
+- Cli mode (fallback): uses the `vips` command-line tool directly, without any
+  php extension.
 
 The module automatically detects the available mode and selects the best one.
 If both are available, the PHP library mode is preferred.
@@ -51,26 +51,29 @@ If both are available, the PHP library mode is preferred.
 * From the zip
 
 Download the last release [Vips.zip] from the list of releases and uncompress it
-in the `modules` directory. The zip works in cli mode out of the box. For PHP
-library mode, run `composer require jcupitt/vips:^1.0` (or `^2.0`) inside the
-module directory after extraction.
+in the `modules` directory. The library [jcupitt/vips] v1 is included. If the
+php extension ext-vips is installed, the PHP library mode is used automatically;
+otherwise, the module falls back to CLI mode.
 
 * From the source and for development
 
 If the module was installed from the source, rename the name of the folder of
-the module to `Vips`.
-
-For PHP library mode (recommended), go to the root of the module and run:
+the module to `Vips`, go to the root of the module, and run:
 
 ```sh
-# v1 (requires ext-vips):
-composer require jcupitt/vips:^1.0 --no-dev
-# or v2 (requires ext-ffi with ffi.enable=true in php.ini, less secure):
+composer install --no-dev
+```
+
+The library [jcupitt/vips] v1 is installed by default. To use v2 instead
+(requires ext-ffi with `ffi.enable=true` in php.ini, less secure):
+
+```sh
 composer require jcupitt/vips:^2.0 --no-dev
 ```
 
-For CLI mode, no composer dependency is needed: the module uses the `vips`
-command-line tool directly. See below [section Vips](#vips).
+For CLI mode only, the library is not needed but is still installed as a
+dependency. The module uses the `vips` command-line tool directly when ext-vips
+is not available. See below [section Vips](#vips).
 
 Then install it like any other Omeka module and follow the config instructions.
 
