@@ -244,14 +244,24 @@ the root of Omeka:
 ```
 
 
-### Create all thumbnails from the command lines
+### Create all thumbnails from command line
 
-From the root of Omeka, run:
+From the root of Omeka, run the script as the web server user so that created
+files are immediately owned by the right user:
+
 ```sh
-# php
-php modules/Vips/data/scripts/thumbnailize.php
+# php (recommended)
+sudo -u www-data -s /bin/bash -c 'php /var/www/html/modules/Vips/data/scripts/thumbnailize.php --parallel 4 --crop-mode entropy --log-file /tmp/thumbnailize.log'
 # or bash
-bash modules/Vips/data/scripts/thumbnailize.sh
+sudo -u www-data -s /bin/bash -c '/var/www/html/modules/Vips/data/scripts/thumbnailize.sh --parallel 4 --crop-mode entropy --log-file /tmp/thumbnailize.log'
+```
+
+If you cannot use sudo, you can try `--owner` to set the correct ownership on
+all created and existing thumbnail files:
+
+```sh
+php modules/Vips/data/scripts/thumbnailize.php --owner=www-data:www-data
+bash modules/Vips/data/scripts/thumbnailize.sh --owner www-data:www-data
 ```
 
 All arguments are provided: all files or only missing ones, in parallel or not,
