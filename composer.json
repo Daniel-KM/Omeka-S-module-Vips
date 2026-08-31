@@ -31,9 +31,9 @@
     "suggest": {
         "ext-vips": "Php extension for vips (recommended for performance with jcupitt/vips v1). Not needed for cli mode."
     },
+    "_note_provide": "As warned below, ext-vips is not provided, but the module requires either ext-vips, either vips-cli.",
     "provide": {
-        "ext-vips": "*",
-        "psr/log": "*"
+        "ext-vips": "*"
     },
     "autoload": {
         "psr-4": {
