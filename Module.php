@@ -142,10 +142,10 @@ class Module extends AbstractModule
 
     public function attachListeners(SharedEventManagerInterface $sharedEventManager): void
     {
-        // TODO To be replaced by omeka controller once the event will be integrated upstream.
+        // The core controller triggers event "system_info" since Omeka 4.2.
         $sharedEventManager->attach(
-            \Vips\Controller\Admin\SystemInfoController::class,
-            'system.info',
+            \Omeka\Controller\Admin\SystemInfoController::class,
+            'system_info',
             [$this, 'handleSystemInfo']
         );
     }

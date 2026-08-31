@@ -27,11 +27,6 @@ return [
             'Omeka\File\Thumbnailer' => 'Vips\File\Thumbnailer\Vips',
         ],
     ],
-    'controllers' => [
-        'factories' => [
-            'Omeka\Controller\Admin\SystemInfo' => Service\Controller\Admin\SystemInfoControllerFactory::class,
-        ],
-    ],
     'translator' => [
         'translation_file_patterns' => [
             [
